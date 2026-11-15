@@ -1,24 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { ArrowRight, CheckCircle2, RefreshCw, Search, Users } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, Building2, ChevronLeft, ChevronRight, MapPin, RefreshCw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { fetchCategories, type Category } from "@/lib/api";
+import {
+  fetchCategories,
+  fetchSchemes,
+  type Category,
+  type SchemeRecord,
+} from "@/lib/api";
 
+const PAGE_SIZE = 8;
 const ALL_CATEGORIES = "All categories";
-const SCHEMES = [
-  { title: "PM Scholarship Scheme", category: "Education", description: "Financial support for the higher education of eligible students.", benefit: "Up to ₹50,000 / year", audience: "Students", status: "Active" },
-  { title: "National Health Mission", category: "Healthcare", description: "Accessible and affordable healthcare services for families across Bharat.", benefit: "Free coverage", audience: "Families", status: "Active" },
-  { title: "Kisan Samman Nidhi", category: "Agriculture", description: "Income support for eligible landholding farmer families.", benefit: "₹6,000 / year", audience: "Farmers", status: "Open" },
-  { title: "Awas Yojana (Urban)", category: "Housing", description: "Interest subsidy and assistance to help urban families own a home.", benefit: "Interest subsidy", audience: "Home seekers", status: "Verified" },
-  { title: "Post-Matric Scholarship", category: "Education", description: "Support for students continuing education after secondary school.", benefit: "Tuition assistance", audience: "Students", status: "Open" },
-  { title: "Ayushman Bharat", category: "Healthcare", description: "Health insurance cover for secondary and tertiary hospitalisation.", benefit: "₹5 lakh cover", audience: "Eligible families", status: "Active" },
-  { title: "Pradhan Mantri Fasal Bima", category: "Agriculture", description: "Crop insurance protection against natural risks and losses.", benefit: "Crop protection", audience: "Farmers", status: "Active" },
-  { title: "PM SVANidhi", category: "Housing", description: "Working capital support for street vendors to restart their businesses.", benefit: "Loans from ₹10,000", audience: "Street vendors", status: "Open" },
-];
-
 const MASTER_FILTERS = [
   ["ministryId", "ministry"],
   ["stateId", "state"],
@@ -31,21 +26,48 @@ function parseId(value: string | null): number | undefined {
   return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 }
 
+function coverageLabel(scheme: SchemeRecord) {
+  if (scheme.coverage.type === "ALL_INDIA") return "All India";
+  const locations = [
+    ...scheme.coverage.states.map((location) => location.name),
+    ...scheme.coverage.unionTerritories.map((location) => location.name),
+  ];
+  return locations.join(", ") || "Selected locations";
+}
+
 export default function Schemes() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [schemes, setSchemes] = useState<SchemeRecord[]>([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: PAGE_SIZE,
+    totalItems: 0,
+    totalPages: 0,
+    hasPrevious: false,
+    hasNext: false,
+  });
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [schemeError, setSchemeError] = useState<string | null>(null);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [schemesLoading, setSchemesLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
-  const [query, setQuery] = useState("");
+  const searchParam = searchParams.get("search") ?? "";
+  const [query, setQuery] = useState(searchParam);
+  const [submittedQuery, setSubmittedQuery] = useState(searchParam);
+
+  const page = parseId(searchParams.get("page")) ?? 1;
+  const categoryParam = searchParams.get("categoryId");
+  const requestedCategoryId = parseId(categoryParam);
+  const selectedMasterFilter = MASTER_FILTERS.find(([key]) => searchParams.has(key));
+  const selectedMasterValue = selectedMasterFilter ? searchParams.get(selectedMasterFilter[0]) : null;
 
   useEffect(() => {
     const controller = new AbortController();
     setCategoriesLoading(true);
     setCategoryError(null);
-
     fetchCategories(controller.signal)
-      .then(setCategories)
+      .then((items) => setCategories(items.filter((item) => item.isActive)))
       .catch((requestError: unknown) => {
         if (!controller.signal.aborted) {
           setCategoryError(requestError instanceof Error ? requestError.message : "Unable to load categories.");
@@ -58,35 +80,92 @@ export default function Schemes() {
     return () => controller.abort();
   }, [reloadKey]);
 
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery === submittedQuery) return undefined;
+    const timeout = window.setTimeout(() => {
+      setSubmittedQuery(normalizedQuery);
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete("page");
+        if (normalizedQuery) next.set("search", normalizedQuery);
+        else next.delete("search");
+        return next;
+      }, { replace: true });
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [query, submittedQuery, setSearchParams]);
+
   const activeCategories = useMemo(
     () => categories.filter((category) => category.isActive),
     [categories],
   );
-  const categoryParam = searchParams.get("categoryId");
-  const requestedCategoryId = parseId(categoryParam);
   const selectedCategory = activeCategories.find((category) => category.id === requestedCategoryId);
-  const selectedMasterFilter = MASTER_FILTERS.find(([key]) => searchParams.has(key));
   const categoryUnavailable = categoryParam !== null && !selectedCategory && !categoriesLoading;
 
-  const visibleSchemes = useMemo(() => {
-    if (categoriesLoading || selectedMasterFilter || categoryUnavailable) return [];
-    return SCHEMES.filter((scheme) => {
-      const matchesDatabaseCategory = activeCategories.some((category) => category.name === scheme.category);
-      const matchesCategory = !selectedCategory || scheme.category === selectedCategory.name;
-      const searchText = `${scheme.title} ${scheme.category} ${scheme.description} ${scheme.audience}`.toLowerCase();
-      return matchesDatabaseCategory && matchesCategory && searchText.includes(query.trim().toLowerCase());
-    });
-  }, [activeCategories, categoriesLoading, categoryUnavailable, query, selectedCategory, selectedMasterFilter]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setSchemesLoading(true);
+    setSchemeError(null);
+    fetchSchemes({
+      page,
+      pageSize: PAGE_SIZE,
+      search: submittedQuery,
+      ...(requestedCategoryId !== undefined ? { categoryId: requestedCategoryId } : {}),
+      ...(parseId(searchParams.get("ministryId")) !== undefined
+        ? { ministryId: parseId(searchParams.get("ministryId")) }
+        : {}),
+      ...(parseId(searchParams.get("stateId")) !== undefined
+        ? { stateId: parseId(searchParams.get("stateId")) }
+        : {}),
+      ...(parseId(searchParams.get("unionTerritoryId")) !== undefined
+        ? { unionTerritoryId: parseId(searchParams.get("unionTerritoryId")) }
+        : {}),
+    }, controller.signal)
+      .then((result) => {
+        setSchemes(result.schemes);
+        setPagination(result.pagination);
+      })
+      .catch((requestError: unknown) => {
+        if (!controller.signal.aborted) {
+          setSchemeError(requestError instanceof Error ? requestError.message : "Unable to load schemes.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSchemesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [page, requestedCategoryId, reloadKey, searchParams, submittedQuery]);
 
   const selectCategory = (id?: number) => {
-    const next = new URLSearchParams(searchParams);
-    if (id === undefined) next.delete("categoryId");
-    else next.set("categoryId", String(id));
-    setSearchParams(next);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (id === undefined) next.delete("categoryId");
+      else next.set("categoryId", String(id));
+      next.delete("page");
+      return next;
+    });
   };
 
-  const clearFilters = () => setSearchParams({});
-  const selectedMasterValue = selectedMasterFilter ? searchParams.get(selectedMasterFilter[0]) : null;
+  const clearFilters = () => {
+    setQuery("");
+    setSubmittedQuery("");
+    setSearchParams({});
+  };
+
+  const setPage = (nextPage: number) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (nextPage <= 1) next.delete("page");
+      else next.set("page", String(nextPage));
+      return next;
+    });
+  };
+
+  const hasFilters = categoryParam !== null || selectedMasterFilter !== undefined;
+  const startItem = pagination.totalItems === 0 ? 0 : (pagination.page - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(pagination.page * PAGE_SIZE, pagination.totalItems);
 
   return (
     <div className="bg-slate-50">
@@ -95,7 +174,7 @@ export default function Schemes() {
           <Badge variant="outline" className="mb-4 border-secondary text-secondary">Scheme directory</Badge>
           <h1 className="text-4xl font-bold tracking-tight md:text-5xl">All government schemes</h1>
           <p className="mt-4 max-w-2xl text-lg text-slate-300">
-            Browse verified support programmes and find benefits that match your needs.
+            Browse schemes saved in the database, including their benefits and eligibility information.
           </p>
           <div className="relative mt-8 max-w-2xl">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -103,7 +182,7 @@ export default function Schemes() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               className="h-14 rounded-xl border-none bg-white pl-12 text-slate-900"
-              placeholder="Search by scheme, benefit or audience..."
+              placeholder="Search schemes, ministries or benefits..."
               aria-label="Search schemes"
             />
           </div>
@@ -111,20 +190,21 @@ export default function Schemes() {
       </section>
 
       <main className="container mx-auto px-4 py-12">
-        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        <div className="mb-8 flex flex-col gap-5">
           <div>
             <h2 className="text-2xl font-bold">Browse schemes</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Showing {visibleSchemes.length} {visibleSchemes.length === 1 ? "scheme" : "schemes"}
+              {schemesLoading ? "Loading schemes…" : `Showing ${startItem}–${endItem} of ${pagination.totalItems} schemes`}
             </p>
             {selectedMasterFilter && (
               <p className="mt-1 text-sm text-muted-foreground">
-                Selected {selectedMasterFilter[1]} filter (ID {selectedMasterValue})
+                Filtered by {selectedMasterFilter[1]} (ID {selectedMasterValue})
               </p>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
+              type="button"
               variant={requestedCategoryId === undefined ? "default" : "outline"}
               onClick={() => selectCategory()}
               className={requestedCategoryId === undefined ? "bg-primary" : "bg-white"}
@@ -133,6 +213,7 @@ export default function Schemes() {
             </Button>
             {activeCategories.map((category) => (
               <Button
+                type="button"
                 key={category.id}
                 variant={requestedCategoryId === category.id ? "default" : "outline"}
                 onClick={() => selectCategory(category.id)}
@@ -141,8 +222,8 @@ export default function Schemes() {
                 {category.name}
               </Button>
             ))}
-            {(categoryParam !== null || selectedMasterFilter) && (
-              <Button variant="ghost" onClick={clearFilters}>Clear filters</Button>
+            {(hasFilters || submittedQuery) && (
+              <Button type="button" variant="ghost" onClick={clearFilters}>Clear filters</Button>
             )}
           </div>
         </div>
@@ -150,42 +231,64 @@ export default function Schemes() {
         {categoriesLoading && <p role="status" className="mb-6 text-sm text-muted-foreground">Loading categories…</p>}
         {categoryError && (
           <div role="alert" className="mb-6 flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800 sm:flex-row sm:items-center sm:justify-between">
-            <p>{categoryError}</p>
-            <Button variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
+            <p>Category filters could not be loaded: {categoryError}</p>
+            <Button type="button" variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
+              <RefreshCw className="mr-2 h-4 w-4" /> Retry
+            </Button>
+          </div>
+        )}
+        {schemeError && (
+          <div role="alert" className="mb-6 flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800 sm:flex-row sm:items-center sm:justify-between">
+            <p>{schemeError}</p>
+            <Button type="button" variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
               <RefreshCw className="mr-2 h-4 w-4" /> Retry
             </Button>
           </div>
         )}
 
-        {visibleSchemes.length > 0 && (
+        {schemesLoading && <p role="status" className="py-12 text-center text-muted-foreground">Loading schemes…</p>}
+
+        {!schemesLoading && !schemeError && !categoryUnavailable && schemes.length > 0 && (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {visibleSchemes.map((scheme) => (
-              <Card key={scheme.title} className="border-slate-200 bg-white transition-shadow hover:shadow-lg">
+            {schemes.map((scheme) => (
+              <Card key={scheme.id} className="border-slate-200 bg-white transition-shadow hover:shadow-lg">
                 <CardHeader className="pb-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <Badge variant="secondary" className="bg-slate-100 text-slate-600">{scheme.category}</Badge>
-                    <Badge className="border-none bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                      <CheckCircle2 className="mr-1 h-3 w-3" />{scheme.status}
-                    </Badge>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {scheme.categories.map((category) => (
+                        <Badge key={category.id} variant="secondary" className="bg-slate-100 text-slate-600">
+                          {category.name}
+                        </Badge>
+                      ))}
+                    </div>
+                    {scheme.code && <Badge variant="outline">{scheme.code}</Badge>}
                   </div>
-                  <CardTitle className="text-xl">{scheme.title}</CardTitle>
+                  <h2 className="text-xl font-semibold tracking-tight">{scheme.name}</h2>
                 </CardHeader>
                 <CardContent>
-                  <p className="mb-6 text-sm leading-relaxed text-muted-foreground">{scheme.description}</p>
-                  <div className="grid grid-cols-2 gap-4 border-y border-slate-100 py-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Key benefit</p>
-                      <p className="mt-1 font-bold text-primary">{scheme.benefit}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">For</p>
-                      <p className="mt-1 flex items-center gap-1 font-semibold">
-                        <Users className="h-4 w-4 text-secondary" />{scheme.audience}
-                      </p>
-                    </div>
+                  <div className="mb-4 space-y-2 text-sm text-muted-foreground">
+                    <p className="flex items-start gap-2">
+                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span>{scheme.ministry.name}</span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span>{coverageLabel(scheme)}</span>
+                    </p>
                   </div>
-                  <Button variant="outline" className="group mt-5 w-full border-primary text-primary hover:bg-primary hover:text-white">
-                    View details <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  {scheme.details.items[0] && (
+                    <p className="mb-4 text-sm leading-relaxed text-slate-600">{scheme.details.items[0]}</p>
+                  )}
+                  {scheme.benefits.items.length > 0 && (
+                    <div className="border-y border-slate-100 py-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Benefits</p>
+                      <p className="mt-1 text-sm font-semibold text-primary">{scheme.benefits.items[0]}</p>
+                    </div>
+                  )}
+                  <Button asChild variant="outline" className="group mt-5 w-full border-primary text-primary hover:bg-primary hover:text-white">
+                    <Link to={`/schemes/${scheme.id}`}>
+                      View scheme details <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -193,18 +296,40 @@ export default function Schemes() {
           </div>
         )}
 
-        {!categoriesLoading && !categoryError && visibleSchemes.length === 0 && (
+        {!schemesLoading && !schemeError && (categoryUnavailable || schemes.length === 0) && (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
             <Search className="mx-auto mb-4 h-8 w-8 text-slate-400" />
-            <h3 className="text-lg font-bold">No schemes found</h3>
+            <h3 className="text-lg font-bold">{categoryUnavailable ? "Category not available" : "No schemes found"}</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {selectedMasterFilter
-                ? "No scheme records are connected to the selected master data yet."
-                : categoryUnavailable
-                  ? "The selected category is not available."
-                  : "Try a different search term or category."}
+              {categoryUnavailable
+                ? "The selected category is not available."
+                : "Try another search term or filter. Schemes will appear here when they have been saved."}
             </p>
           </div>
+        )}
+
+        {!schemesLoading && !schemeError && pagination.totalPages > 1 && (
+          <nav aria-label="Scheme pages" className="mt-8 flex items-center justify-center gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPage(pagination.page - 1)}
+              disabled={!pagination.hasPrevious}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPage(pagination.page + 1)}
+              disabled={!pagination.hasNext}
+            >
+              Next <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </nav>
         )}
       </main>
     </div>

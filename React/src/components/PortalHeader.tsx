@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 const NAV_ITEMS = [
   { label: "Dashboard", to: "/dashboard" },
   { label: "Schemes", to: "/schemes" },
+  { label: "Create scheme", to: "/create-scheme" },
   { label: "Categories", to: "/categories" },
   { label: "Ministries", to: "/ministries" },
   { label: "States & UTs", to: "/locations" },

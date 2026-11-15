@@ -4,15 +4,19 @@ import { createAuthRouter } from "./routes/auth.js";
 import { createGendersRouter } from "./routes/genders.js";
 import { createLocationsRouter } from "./routes/locations.js";
 import { createMinistriesRouter } from "./routes/ministries.js";
+import { createCriteriaOptionsRouter } from "./routes/criteriaOptions.js";
+import { createSchemesRouter } from "./routes/schemes.js";
 
 export function createApp({ pool, jwtSecret, cloudinary }) {
   const app = express();
-  app.use(express.json({ limit: "10kb" }));
+  app.use(express.json({ limit: "100kb" }));
   app.use("/api/v1", createAuthRouter({ pool, jwtSecret }));
   app.use("/api/v1", createCategoriesRouter({ pool, jwtSecret, cloudinary }));
   app.use("/api/v1", createGendersRouter({ pool, jwtSecret }));
   app.use("/api/v1", createLocationsRouter({ pool, jwtSecret }));
   app.use("/api/v1", createMinistriesRouter({ pool, jwtSecret }));
+  app.use("/api/v1", createCriteriaOptionsRouter({ pool }));
+  app.use("/api/v1", createSchemesRouter({ pool }));
 
   app.use((err, req, res, next) => {
     if (err.name === "MulterError") {

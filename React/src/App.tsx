@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Schemes from "./pages/Schemes";
+import SchemeDetails from "./pages/SchemeDetails";
+import CreateScheme from "./pages/CreateScheme";
 import Categories from "./pages/CategoriesOnly";
 import Ministries from "./pages/Ministries";
 import Locations from "./pages/Locations";
@@ -27,6 +29,8 @@ const App = () => {
             <Route path="/profile" element={<Profile />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/schemes" element={<Schemes />} />
+            <Route path="/schemes/:id" element={<SchemeDetails />} />
+            <Route path="/create-scheme" element={<CreateScheme />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/ministries" element={<Ministries />} />
             <Route path="/locations" element={<Locations />} />
