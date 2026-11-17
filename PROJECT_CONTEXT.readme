@@ -1,0 +1,94 @@
+# GovScheme Project Context
+
+Updated: 2026-11-17
+
+This file is a handoff for future work on the repository. It summarizes the project, its current behavior, recent decisions, and the user-request history available in this conversation. It is not a verbatim export of every assistant message or tool result.
+
+## Project overview
+
+GovScheme is a web application for discovering Indian government schemes. The repository has a React/Vite frontend and a Node.js/Express backend backed by MySQL. The frontend provides scheme search and browsing, scheme details, an admin login and scheme-creation prototype, and a browser-local saved-schemes list.
+
+## Repository layout
+
+- `React/` — React 18, TypeScript, Vite, Tailwind, React Router, and UI components.
+- `React/src/pages/` — Homepage, dashboard, scheme directory and details, category/ministries/locations views, login/profile, and informational pages.
+- `React/src/components/` — Shared navigation, saved-scheme UI, and reusable UI components.
+- `React/src/lib/` — API client, translations, utilities, and saved-scheme local storage provider.
+- `Backend/` — Node.js 20+ and Express 5 API.
+- `Backend/src/routes/` — API routes for auth, schemes, categories, ministries, locations, genders, and criteria options.
+- `Backend/migrations/` — Ordered MySQL schema and master-data migrations.
+- `Backend/scripts/seed-admin.js` — Admin bootstrap and idempotent seeding for detailed Education schemes and the general scheme catalog.
+- `Backend/scripts/scheme-catalog.js` — Broad catalog seed data.
+- `Backend/tests/` — Node's built-in test runner tests.
+
+The React package is currently named `UXPilot` in its `package.json`; the UI itself identifies as GovScheme. There is no root-level README. `Backend/README.md` documents backend setup and API behavior, but its Education scheme count predates the latest seed addition; use the seeder and tests as the current source for that count.
+
+## Current frontend behavior
+
+- `/` is a welcome homepage for the scheme portal.
+- `/dashboard` contains the centered scheme search and featured schemes.
+- `/schemes` lists schemes; `/schemes/:id` shows scheme details.
+- `/saved-schemes` is a separate navigation section between Ministries and States & UTs. Save actions in scheme listings and details add scheme IDs to browser local storage.
+- Statistics and the chart page/sections were removed at the user's request.
+- The homepage category-browsing section was removed.
+- `/how-it-works` and `/help` are the informational pages.
+
+Relevant files include `React/src/App.tsx`, `React/src/pages/Index.tsx`, `React/src/pages/Dashboard.tsx`, `React/src/components/PortalHeader.tsx`, `React/src/components/SavedSchemesSection.tsx`, and `React/src/lib/savedSchemes.tsx`.
+
+## Backend and data notes
+
+- Backend setup requires Node.js 20+, MySQL, and environment values copied from `Backend/.env.example`. Never copy actual `.env` values into documentation or source control.
+- Run backend commands from `Backend/`: `npm install`, `npm run db:migrate`, `npm run db:seed-admin`, `npm run dev`, and `npm test`.
+- Migrations are applied by `Backend/scripts/migrate.js` and tracked in `schema_migrations`.
+- Scheme details, benefits, eligibility, application process, and documents are stored as JSON; scheme category mappings are relational.
+- The `db:seed-admin` command writes to the configured database. It seeds the admin, detailed Education scheme records, and the full catalog. Do not run it against an unknown or live database without confirming the target.
+- The detailed Education seeder currently includes PM-USP-CSSS, NMMSS, AICTE Pragati, AICTE Saksham, and PM-Vidyalaxmi. The broader catalog also tags PM-YASASVI and INSPIRE under Education; together these make seven Education schemes in the seeded data.
+- PM-Vidyalaxmi uses the official portal `https://pmvidyalaxmi.co.in/` as a reference. Its loan terms, lender assessment, institute eligibility, and any interest support must be checked against current official rules; do not imply that applications are always open or promise a fixed amount.
+- Scheme eligibility, benefit values, application dates, and availability can change. Direct users to the administering agency's current guidelines.
+- Scheme creation is currently public in the backend prototype; the Backend README notes it must be protected by admin authorization before production.
+
+## Recent conversation history and decisions
+
+The following user requests are preserved verbatim from the available conversation context. The outcomes summarize work recorded in that context.
+
+### Homepage and dashboard
+
+> so the home page where has searching thing take that whole thing and place it on center of page dashboard and remove every other thing from dashboard expect this seaching home page and second in when to cut that seaching page from home page to dashboard then home page place will be empty so in place of seaching thing on home page place there welcom page aproriate as it's schems realated web site
+
+Outcome: moved the search experience to the dashboard and replaced the homepage search hero with a scheme-related welcome and links.
+
+### Featured schemes and chart requests
+
+> the part in home page schems people often  look for cut that from home page and place it on dasboard page under searching part ,take the current thing from statistics and place it on home page before browse by category section and remove browse by category from home page, place something similar on  statistics page like graph of schems.
+
+> not this graph you have placed it on statistics ,i'm talking about that bar graph.
+
+Outcome: moved featured schemes beneath dashboard search, removed the homepage category-browsing section, and briefly added a vertical bar chart to Statistics. Statistics was subsequently removed entirely by a later request.
+
+### Saved schemes and removing statistics
+
+> remove the whole statistic section from whole web site and place one section called saved schemes so if user clicks on save button on any schemes then that schemes should display inside this Saved schemes section
+
+> that saved schemes section which you have puted on dasborad under seacrh schems so i want you to remove that from there and make an whole own section of saved schemes between Ministries and states&ut section on above
+
+Outcome: removed statistics and its navigation/route; added save/remove controls with browser-local persistence; moved saved schemes to its own `/saved-schemes` navigation section between Ministries and States & UTs.
+
+### Education schemes
+
+> add currently avaliable 3-4 education schems of india in education category and make sure that the schems you have added has data like that one named scheme and make sure every information is true and trustworthy
+
+Outcome: the existing database seeder already contained four detailed Education schemes. Official-source access was limited, so source references and reminders to verify current application windows were added. No database seeding was executed.
+
+> create oen seed for adding 1 scheme in education category
+
+Outcome: added PM-Vidyalaxmi as a fifth detailed Education entry in `Backend/scripts/seed-admin.js`, using the official portal for reference and avoiding unverified fixed loan terms. Updated the Education scheme-count assertion in `Backend/tests/scheme-catalog.test.js`. The backend suite passed (22 tests) and JavaScript syntax checks passed. The database seeder was not run.
+
+### This context document
+
+> create one context file for entire project with all chat history in some new .readme file in root directory
+
+## Validation and working conventions
+
+- Backend validation last recorded: `npm.cmd test` in `Backend/` passed all 22 tests; `node --check` passed for the modified seeder and test.
+- Frontend checks recorded in earlier work: TypeScript project checks and Vite production builds passed for the UI changes. ESLint could not run because the repository had no ESLint 9 configuration.
+- Keep code changes surgical, preserve existing user changes, and use official sources for scheme data. Do not edit unrelated files or run database writes without explicit confirmation of the target.
