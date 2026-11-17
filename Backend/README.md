@@ -16,3 +16,7 @@ The login endpoint is `POST /api/v1/auth/login` with `{ "id": "...", "password":
 Each schema change belongs in a new ordered `.sql` file under `migrations/`. The migration runner records applied filenames in `schema_migrations`. The admin ID and password are supplied through server-only environment variables and seeded as a scrypt hash; do not put real credentials in a migration or commit `.env`.
 
 Migration `023_seed_master_categories.sql` seeds these active categories: Agriculture and Farming, Health and Wellness, Women and Child Development, Employment and Skill Development, Social Welfare and Empowerment, Housing and Shelter, Banking and Financial Services, Business and Entrepreneurship, Rural Development, Science and Technology, Transport and Infrastructure, Environment and Energy, Sports and Culture, Tourism and Travel, Food Security, Drinking Water and Sanitation, Labour Welfare, Tribal Development, Fisheries and Animal Husbandry, Financial Assistance, Pension and Retirement Benefits, Digital Services, Public Safety and Justice, and Child Protection and Welfare.
+
+
+
+test
