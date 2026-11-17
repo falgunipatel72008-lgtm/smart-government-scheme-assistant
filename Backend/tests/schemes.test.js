@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
+import jwt from "jsonwebtoken";
 import { createApp } from "../src/app.js";
 
 const jwtSecret = "test-secret-with-at-least-thirty-two-characters";
+const adminToken = jwt.sign({}, jwtSecret, { subject: "admin" });
 
 function createSchemeBody(overrides = {}) {
   return {
@@ -95,6 +97,7 @@ test("creates a scheme and its criteria mappings in one transaction", async () =
 
   const response = await request(app)
     .post("/api/v1/schemes")
+    .set("Authorization", `Bearer ${adminToken}`)
     .send(createSchemeBody());
 
   assert.equal(response.status, 201);
@@ -117,6 +120,7 @@ test("rejects numeric bounds with a minimum above the maximum before opening a t
 
   const response = await request(app)
     .post("/api/v1/schemes")
+    .set("Authorization", `Bearer ${adminToken}`)
     .send(createSchemeBody({ numericRules: { AGE: { min: 61, max: 60 } } }));
 
   assert.equal(response.status, 400);
@@ -130,6 +134,7 @@ test("rolls back when a selected master category is inactive", async () => {
 
   const response = await request(app)
     .post("/api/v1/schemes")
+    .set("Authorization", `Bearer ${adminToken}`)
     .send(createSchemeBody());
 
   assert.equal(response.status, 400);
@@ -144,6 +149,7 @@ test("rolls back when a criteria option is submitted under the wrong dimension",
 
   const response = await request(app)
     .post("/api/v1/schemes")
+    .set("Authorization", `Bearer ${adminToken}`)
     .send(createSchemeBody({
       criteria: {
         GENDER: [2],

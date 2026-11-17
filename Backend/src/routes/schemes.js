@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 
 const idSchema = z.number().int().positive().max(4294967295);
 const queryIdSchema = z.coerce.number().int().positive().max(4294967295);
@@ -77,6 +78,7 @@ const listSchemesQuerySchema = z.object({
   ministryId: queryIdSchema.optional(),
   stateId: queryIdSchema.optional(),
   unionTerritoryId: queryIdSchema.optional(),
+  genderId: queryIdSchema.optional(),
   search: z.string().trim().max(120).default("")
 }).strict();
 
@@ -295,8 +297,9 @@ async function enrichSchemeRows(pool, schemeRows) {
   return schemeRows.map((row) => mapSchemeRow(row, relatedByScheme.get(row.id)));
 }
 
-export function createSchemesRouter({ pool }) {
+export function createSchemesRouter({ pool, jwtSecret }) {
   const router = Router();
+  const adminOnly = requireAdmin(jwtSecret);
 
   router.get("/schemes", async (req, res) => {
     const parsed = listSchemesQuerySchema.safeParse(req.query);
@@ -307,7 +310,7 @@ export function createSchemesRouter({ pool }) {
       });
     }
 
-    const { page, pageSize, search, categoryId, ministryId, stateId, unionTerritoryId } = parsed.data;
+    const { page, pageSize, search, categoryId, ministryId, stateId, unionTerritoryId, genderId } = parsed.data;
     const conditions = ["s.is_active = TRUE"];
     const parameters = [];
     if (categoryId !== undefined) {
@@ -331,6 +334,12 @@ export function createSchemesRouter({ pool }) {
         "(s.coverage_type = 'ALL_INDIA' OR EXISTS (SELECT 1 FROM scheme_union_territories sut WHERE sut.scheme_id = s.id AND sut.union_territory_id = ?))"
       );
       parameters.push(unionTerritoryId);
+    }
+    if (genderId !== undefined) {
+      conditions.push(
+        "EXISTS (SELECT 1 FROM scheme_genders sg WHERE sg.scheme_id = s.id AND sg.gender_id = ?)"
+      );
+      parameters.push(genderId);
     }
     if (search) {
       const like = `%${search}%`;
@@ -398,7 +407,22 @@ export function createSchemesRouter({ pool }) {
     return res.json({ scheme });
   });
 
-  router.post("/schemes", async (req, res) => {
+  router.patch("/schemes/:id/status", adminOnly, async (req, res) => {
+    const parsedId = schemeIdParamSchema.safeParse(req.params.id);
+    const input = z.object({ isActive: z.boolean() }).strict().safeParse(req.body);
+    if (!parsedId.success || !input.success) {
+      return res.status(400).json({ error: "A valid scheme ID and active status are required" });
+    }
+
+    const [result] = await pool.execute(
+      "UPDATE schemes SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [input.data.isActive, parsedId.data]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Scheme not found" });
+    return res.json({ message: "Scheme status updated" });
+  });
+
+  router.post("/schemes", adminOnly, async (req, res) => {
     const parsed = createSchemeSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({

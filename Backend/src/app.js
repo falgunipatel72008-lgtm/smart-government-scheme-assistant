@@ -16,7 +16,7 @@ export function createApp({ pool, jwtSecret, cloudinary }) {
   app.use("/api/v1", createLocationsRouter({ pool, jwtSecret }));
   app.use("/api/v1", createMinistriesRouter({ pool, jwtSecret }));
   app.use("/api/v1", createCriteriaOptionsRouter({ pool }));
-  app.use("/api/v1", createSchemesRouter({ pool }));
+  app.use("/api/v1", createSchemesRouter({ pool, jwtSecret }));
 
   app.use((err, req, res, next) => {
     if (err.name === "MulterError") {

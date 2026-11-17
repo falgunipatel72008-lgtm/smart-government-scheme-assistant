@@ -147,10 +147,158 @@ export type SchemeListFilters = {
   ministryId?: number;
   stateId?: number;
   unionTerritoryId?: number;
+  genderId?: number;
   search?: string;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/+$/, "");
+export const ADMIN_TOKEN_KEY = "govscheme-admin-token";
+
+export type AdminLoginResponse = {
+  token: string;
+  admin: { id: string };
+};
+
+export async function loginAdmin(id: string, password: string): Promise<AdminLoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ id, password }),
+  });
+  const data = await response.json() as AdminLoginResponse & { error?: string };
+
+  if (!response.ok) {
+    throw new Error(data.error || `Admin login failed with status ${response.status}`);
+  }
+  if (!data.token || !data.admin?.id) {
+    throw new Error("The server returned an invalid admin login response");
+  }
+
+  return data;
+}
+
+function getAdminToken(): string {
+  const token = window.localStorage.getItem(ADMIN_TOKEN_KEY);
+  if (!token) throw new Error("Your admin session has expired. Please sign in again.");
+  return token;
+}
+
+async function adminRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...options.headers,
+      Authorization: `Bearer ${getAdminToken()}`,
+    },
+  });
+  const data = await response.json() as T & { error?: string };
+
+  if (response.status === 401) {
+    window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+    throw new Error("Your admin session has expired. Please sign in again.");
+  }
+  if (!response.ok) throw new Error(data.error || `Request to ${path} failed with status ${response.status}`);
+  return data;
+}
+
+export async function verifyAdminSession(): Promise<{ id: string }> {
+  const data = await adminRequest<{ admin: { id: string } }>("/admin/me");
+  return data.admin;
+}
+
+export async function saveCategory(input: { name: string; description: string }): Promise<Category> {
+  const body = new FormData();
+  body.set("name", input.name);
+  body.set("description", input.description);
+  const data = await adminRequest<{ category: Category }>("/categories", { method: "POST", body });
+  return data.category;
+}
+
+export async function updateCategory(id: number, input: { name?: string; description?: string; isActive?: boolean }): Promise<Category> {
+  const body = new FormData();
+  if (input.name !== undefined) body.set("name", input.name);
+  if (input.description !== undefined) body.set("description", input.description);
+  if (input.isActive !== undefined) body.set("isActive", String(input.isActive));
+  const data = await adminRequest<{ category: Category }>(`/categories/${id}`, { method: "PATCH", body });
+  return data.category;
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+  await adminRequest(`/categories/${id}`, { method: "DELETE" });
+}
+
+export async function saveMinistry(input: { ministry: string; description: string }): Promise<Ministry> {
+  const data = await adminRequest<{ ministry: Ministry }>("/ministries", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return data.ministry;
+}
+
+export async function updateMinistry(id: number, input: { ministry?: string; description?: string; isActive?: boolean }): Promise<Ministry> {
+  const data = await adminRequest<{ ministry: Ministry }>(`/ministries/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return data.ministry;
+}
+
+export async function deleteMinistry(id: number): Promise<void> {
+  await adminRequest(`/ministries/${id}`, { method: "DELETE" });
+}
+
+export async function saveGender(gender: string): Promise<Gender> {
+  const data = await adminRequest<{ gender: Gender }>("/genders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ gender }),
+  });
+  return data.gender;
+}
+
+export async function updateGender(id: number, input: { gender?: string; isActive?: boolean }): Promise<Gender> {
+  const data = await adminRequest<{ gender: Gender }>(`/genders/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return data.gender;
+}
+
+export async function deleteGender(id: number): Promise<void> {
+  await adminRequest(`/genders/${id}`, { method: "DELETE" });
+}
+
+export async function saveLocation(kind: "state" | "union-territory", name: string): Promise<void> {
+  const path = kind === "state" ? "/states" : "/union-territories";
+  const field = kind === "state" ? "state" : "ut";
+  await adminRequest(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ [field]: name }),
+  });
+}
+
+export async function updateLocation(id: number, kind: "state" | "union-territory", name: string, isActive: boolean): Promise<void> {
+  const path = kind === "state" ? "/states" : "/union-territories";
+  const field = kind === "state" ? "state" : "ut";
+  await adminRequest(`${path}/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ [field]: name, isActive }),
+  });
+}
+
+export async function deleteLocation(id: number, kind: "state" | "union-territory"): Promise<void> {
+  const path = kind === "state" ? "/states" : "/union-territories";
+  await adminRequest(`${path}/${id}`, { method: "DELETE" });
+}
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -166,24 +314,26 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 export async function createScheme(input: CreateSchemeInput): Promise<CreatedScheme> {
-  const response = await fetch(`${API_BASE_URL}/schemes`, {
+  const data = await adminRequest<{ scheme?: CreatedScheme }>("/schemes", {
     method: "POST",
     headers: {
-      Accept: "application/json",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(input),
   });
-  const data = await response.json() as { scheme?: CreatedScheme; error?: string };
-
-  if (!response.ok) {
-    throw new Error(data.error || `Creating scheme failed with status ${response.status}`);
-  }
   if (!data.scheme) {
     throw new Error("The server returned an invalid scheme response");
   }
 
   return data.scheme;
+}
+
+export async function updateSchemeStatus(id: number, isActive: boolean): Promise<void> {
+  await adminRequest(`/schemes/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isActive }),
+  });
 }
 
 export async function fetchSchemes(

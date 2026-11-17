@@ -8,8 +8,14 @@ import { Input } from "@/components/ui/input";
 import SavedSchemeButton from "@/components/SavedSchemeButton";
 import {
   fetchCategories,
+  fetchGenders,
+  fetchLocations,
+  fetchMinistries,
   fetchSchemes,
   type Category,
+  type Gender,
+  type Location,
+  type Ministry,
   type SchemeRecord,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -20,6 +26,7 @@ const MASTER_FILTERS = [
   ["ministryId", "ministry"],
   ["stateId", "state"],
   ["unionTerritoryId", "union territory"],
+  ["genderId", "gender"],
 ] as const;
 
 function parseId(value: string | null): number | undefined {
@@ -45,6 +52,9 @@ export default function Schemes() {
   const { t, categoryName, ministryName, locationName, schemeName } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [ministries, setMinistries] = useState<Ministry[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [genders, setGenders] = useState<Gender[]>([]);
   const [schemes, setSchemes] = useState<SchemeRecord[]>([]);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -73,8 +83,18 @@ export default function Schemes() {
     const controller = new AbortController();
     setCategoriesLoading(true);
     setCategoryError(null);
-    fetchCategories(controller.signal)
-      .then((items) => setCategories(items.filter((item) => item.isActive)))
+    Promise.all([
+      fetchCategories(controller.signal),
+      fetchMinistries(controller.signal),
+      fetchLocations(controller.signal),
+      fetchGenders(controller.signal),
+    ])
+      .then(([nextCategories, nextMinistries, nextLocations, nextGenders]) => {
+        setCategories(nextCategories.filter((item) => item.isActive));
+        setMinistries(nextMinistries.filter((item) => item.isActive));
+        setLocations(nextLocations.filter((item) => item.isActive));
+        setGenders(nextGenders.filter((item) => item.isActive));
+      })
       .catch((requestError: unknown) => {
         if (!controller.signal.aborted) {
           setCategoryError(requestError instanceof Error ? requestError.message : "Unable to load categories.");
@@ -107,6 +127,16 @@ export default function Schemes() {
     () => categories.filter((category) => category.isActive),
     [categories],
   );
+  const activeMinistries = useMemo(() => ministries.filter((ministry) => ministry.isActive), [ministries]);
+  const activeStates = useMemo(
+    () => locations.filter((location) => location.isActive && !location.isUnionTerritory),
+    [locations],
+  );
+  const activeUnionTerritories = useMemo(
+    () => locations.filter((location) => location.isActive && location.isUnionTerritory),
+    [locations],
+  );
+  const activeGenders = useMemo(() => genders.filter((gender) => gender.isActive), [genders]);
   const selectedCategory = activeCategories.find((category) => category.id === requestedCategoryId);
   const categoryUnavailable = categoryParam !== null && !selectedCategory && !categoriesLoading;
 
@@ -127,6 +157,9 @@ export default function Schemes() {
         : {}),
       ...(parseId(searchParams.get("unionTerritoryId")) !== undefined
         ? { unionTerritoryId: parseId(searchParams.get("unionTerritoryId")) }
+        : {}),
+      ...(parseId(searchParams.get("genderId")) !== undefined
+        ? { genderId: parseId(searchParams.get("genderId")) }
         : {}),
     }, controller.signal)
       .then((result) => {
@@ -150,6 +183,28 @@ export default function Schemes() {
       const next = new URLSearchParams(current);
       if (id === undefined) next.delete("categoryId");
       else next.set("categoryId", String(id));
+      next.delete("page");
+      return next;
+    });
+  };
+
+  const selectMasterFilter = (key: string, value: string) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      next.delete("page");
+      return next;
+    });
+  };
+
+  const selectLocationFilter = (value: string) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("stateId");
+      next.delete("unionTerritoryId");
+      if (value.startsWith("state:")) next.set("stateId", value.slice(6));
+      if (value.startsWith("ut:")) next.set("unionTerritoryId", value.slice(3));
       next.delete("page");
       return next;
     });
@@ -209,29 +264,71 @@ export default function Schemes() {
               </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={requestedCategoryId === undefined ? "default" : "outline"}
-              onClick={() => selectCategory()}
-              className={requestedCategoryId === undefined ? "bg-primary" : "bg-white"}
-            >
-              {t(ALL_CATEGORIES)}
-            </Button>
-            {activeCategories.map((category) => (
-              <Button
-                type="button"
-                key={category.id}
-                variant={requestedCategoryId === category.id ? "default" : "outline"}
-                onClick={() => selectCategory(category.id)}
-                className={requestedCategoryId === category.id ? "bg-primary" : "bg-white"}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="mb-3 text-sm font-semibold text-slate-700">{t("Filter schemes")}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <label htmlFor="scheme-category-filter" className="sr-only">{t("Categories")}</label>
+              <select
+                id="scheme-category-filter"
+                value={requestedCategoryId === undefined ? "" : String(requestedCategoryId)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  selectCategory(value ? Number(value) : undefined);
+                }}
+                className="h-10 min-w-56 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-primary"
               >
-                {categoryName(category.name)}
-              </Button>
-            ))}
-            {(hasFilters || submittedQuery) && (
-              <Button type="button" variant="ghost" onClick={clearFilters}>{t("Clear filters")}</Button>
-            )}
+                <option value="">{t(ALL_CATEGORIES)}</option>
+                {activeCategories.map((category) => (
+                  <option key={category.id} value={category.id}>{categoryName(category.name)}</option>
+                ))}
+              </select>
+              <label htmlFor="scheme-ministry-filter" className="sr-only">{t("Ministry")}</label>
+              <select
+                id="scheme-ministry-filter"
+                value={searchParams.get("ministryId") ?? ""}
+                onChange={(event) => selectMasterFilter("ministryId", event.target.value)}
+                className="h-10 min-w-48 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">{t("All ministries")}</option>
+                {activeMinistries.map((ministry) => (
+                  <option key={ministry.id} value={ministry.id}>{ministryName(ministry.ministry)}</option>
+                ))}
+              </select>
+              <label htmlFor="scheme-location-filter" className="sr-only">{t("State or union territory")}</label>
+              <select
+                id="scheme-location-filter"
+                value={searchParams.get("stateId") ? `state:${searchParams.get("stateId")}` : searchParams.get("unionTerritoryId") ? `ut:${searchParams.get("unionTerritoryId")}` : ""}
+                onChange={(event) => selectLocationFilter(event.target.value)}
+                className="h-10 min-w-52 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">{t("All states and UTs")}</option>
+                <optgroup label={t("States")}>
+                  {activeStates.map((location) => (
+                    <option key={location.id} value={`state:${location.id}`}>{locationName(location.name)}</option>
+                  ))}
+                </optgroup>
+                <optgroup label={t("Union territories")}>
+                  {activeUnionTerritories.map((location) => (
+                    <option key={location.id} value={`ut:${location.id}`}>{locationName(location.name)}</option>
+                  ))}
+                </optgroup>
+              </select>
+              <label htmlFor="scheme-gender-filter" className="sr-only">{t("Gender")}</label>
+              <select
+                id="scheme-gender-filter"
+                value={searchParams.get("genderId") ?? ""}
+                onChange={(event) => selectMasterFilter("genderId", event.target.value)}
+                className="h-10 min-w-40 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">{t("All genders")}</option>
+                {activeGenders.map((gender) => (
+                  <option key={gender.id} value={gender.id}>{gender.gender}</option>
+                ))}
+              </select>
+              {(hasFilters || submittedQuery) && (
+                <Button type="button" variant="ghost" onClick={clearFilters}>{t("Clear filters")}</Button>
+              )}
+            </div>
           </div>
         </div>
 

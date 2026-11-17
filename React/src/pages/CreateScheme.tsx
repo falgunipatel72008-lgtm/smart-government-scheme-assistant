@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Globe, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +12,7 @@ import {
   fetchLocations,
   fetchMinistries,
   createScheme,
+  ADMIN_TOKEN_KEY,
   type Category,
   type CreateSchemeInput,
   type CriteriaDimension,
@@ -178,6 +181,8 @@ function locationKey(location: Location) {
 
 export default function CreateScheme() {
   const { t, categoryName, ministryName, locationName } = useI18n();
+  const navigate = useNavigate();
+  const [isNavOpen, setIsNavOpen] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [criteriaDimensions, setCriteriaDimensions] = useState<CriteriaDimension[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -190,6 +195,11 @@ export default function CreateScheme() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedSchemeId, setSavedSchemeId] = useState<number | null>(null);
+
+  const signOut = () => {
+    window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+    navigate("/admin/login", { replace: true });
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -470,20 +480,48 @@ export default function CreateScheme() {
   };
 
   return (
-    <div className="bg-slate-50">
-      <section className="bg-slate-900 py-12 text-white">
-        <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-slate-50">
+      <section className="bg-slate-950 py-10 text-white">
+        <div className="container mx-auto flex flex-col gap-5 px-4 md:flex-row md:items-end md:justify-between">
+          <div>
           <Badge variant="outline" className="mb-4 border-secondary text-secondary">
-            {t("Public prototype")}
+            {t("Admin console")}
           </Badge>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t("Create a scheme")}</h1>
           <p className="mt-3 max-w-3xl text-slate-300">
             {t("Add scheme information and eligibility criteria. This prototype saves the scheme to the backend.")}
           </p>
+          </div>
+          <div className="flex gap-2">
+            <Button asChild variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10"><Link to="/"><Globe className="mr-2 h-4 w-4" /> {t("Public site")}</Link></Button>
+            <Button variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10" onClick={signOut}><LogOut className="mr-2 h-4 w-4" /> {t("Sign out")}</Button>
+          </div>
         </div>
       </section>
 
-      <main className="container mx-auto max-w-5xl space-y-6 px-4 py-10">
+      <main className="flex min-h-[calc(100vh-11rem)]">
+        <aside className={`shrink-0 border-r bg-white p-3 transition-all duration-200 ${isNavOpen ? "w-64" : "w-14"}`}>
+          <div className={`flex items-center ${isNavOpen ? "justify-between" : "justify-center"}`}>
+            {isNavOpen && <span className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("Admin menu")}</span>}
+            <Button type="button" variant="ghost" size="icon" onClick={() => setIsNavOpen((open) => !open)} aria-label={isNavOpen ? t("Close admin navigation") : t("Open admin navigation")}>
+              {isNavOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+            </Button>
+          </div>
+          {isNavOpen && (
+            <nav className="mt-4 space-y-1" aria-label={t("Admin navigation")}>
+              <Link to="/admin" className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary">{t("Overview")}</Link>
+              <Link to="/admin/schemes" className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary">{t("Schemes")}</Link>
+              <Link to="/admin/categories" className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary">{t("Categories")}</Link>
+              <Link to="/admin/ministries" className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary">{t("Ministries")}</Link>
+              <Link to="/admin/genders" className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary">{t("Genders")}</Link>
+              <Link to="/admin/locations" className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary">{t("States & UTs")}</Link>
+              <button type="button" onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-red-700 hover:bg-red-50"><LogOut className="h-4 w-4" /> {t("Sign out")}</button>
+            </nav>
+          )}
+        </aside>
+
+        <div className="min-w-0 flex-1">
+        <div className="container mx-auto max-w-5xl space-y-6 px-4 py-10">
         {loading && <p role="status" className="text-sm text-muted-foreground">{t("Loading ministries, locations, categories, and eligibility criteria…")}</p>}
         {error && (
           <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800 sm:flex-row sm:items-center sm:justify-between">
@@ -766,6 +804,8 @@ export default function CreateScheme() {
             </CardContent>
           </Card>
         )}
+        </div>
+        </div>
       </main>
     </div>
   );

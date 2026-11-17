@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Schemes from "./pages/Schemes";
@@ -10,6 +10,8 @@ import Locations from "./pages/Locations";
 import InfoPage from "./pages/InfoPage";
 import SavedSchemesSection from "./components/SavedSchemesSection";
 import Login from "./pages/Login";
+import AdminDashboard, { AdminRoute } from "./pages/AdminDashboard";
+import AdminResourcePage from "./pages/AdminResourcePage";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import PortalHeader from "./components/PortalHeader";
@@ -19,22 +21,39 @@ import { I18nProvider, useI18n } from "@/lib/i18n";
 import { SavedSchemesProvider } from "@/lib/savedSchemes";
 
 const AppContent = () => {
-  const { t } = useI18n();
   return (
     <Router basename={import.meta.env.BASE_URL}>
-      <div className="flex flex-col min-h-screen">
-        <PortalHeader />
+      <AppShell />
+    </Router>
+  );
+};
+
+const AppShell = () => {
+  const { t } = useI18n();
+  const location = useLocation();
+  const isAdminArea = location.pathname.startsWith("/admin");
+
+  return (
+      <div className={`flex min-h-screen flex-col ${isAdminArea ? "subpixel-antialiased" : ""}`}>
+        {!isAdminArea && <PortalHeader />}
 
         {/* Main Content */}
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/admin/login" element={<Login />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/schemes" element={<Schemes />} />
             <Route path="/schemes/:id" element={<SchemeDetails />} />
-            <Route path="/create-scheme" element={<CreateScheme />} />
+            <Route path="/create-scheme" element={<AdminRoute><CreateScheme /></AdminRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/schemes/new" element={<AdminRoute><CreateScheme /></AdminRoute>} />
+            <Route path="/admin/schemes" element={<AdminRoute><AdminResourcePage resource="schemes" /></AdminRoute>} />
+            <Route path="/admin/categories" element={<AdminRoute><AdminResourcePage resource="categories" /></AdminRoute>} />
+            <Route path="/admin/ministries" element={<AdminRoute><AdminResourcePage resource="ministries" /></AdminRoute>} />
+            <Route path="/admin/genders" element={<AdminRoute><AdminResourcePage resource="genders" /></AdminRoute>} />
+            <Route path="/admin/locations" element={<AdminRoute><AdminResourcePage resource="locations" /></AdminRoute>} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/ministries" element={<Ministries />} />
             <Route path="/saved-schemes" element={<SavedSchemesSection />} />
@@ -46,7 +65,7 @@ const AppContent = () => {
         </main>
 
         {/* Footer */}
-        <footer id="footer" className="bg-slate-900 text-slate-400 py-16 border-t border-slate-800">
+        {!isAdminArea && <footer id="footer" className="bg-slate-900 text-slate-400 py-16 border-t border-slate-800">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
               <div className="col-span-1 md:col-span-2 lg:col-span-1">
@@ -113,9 +132,8 @@ const AppContent = () => {
               </div>
             </div>
           </div>
-        </footer>
+        </footer>}
       </div>
-    </Router>
   );
 };
 
