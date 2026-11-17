@@ -8,14 +8,18 @@ import Categories from "./pages/CategoriesOnly";
 import Ministries from "./pages/Ministries";
 import Locations from "./pages/Locations";
 import InfoPage from "./pages/InfoPage";
+import SavedSchemesSection from "./components/SavedSchemesSection";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import PortalHeader from "./components/PortalHeader";
 import { Button } from "@/components/ui/button";
 import { Globe, Phone } from "lucide-react";
+import { I18nProvider, useI18n } from "@/lib/i18n";
+import { SavedSchemesProvider } from "@/lib/savedSchemes";
 
-const App = () => {
+const AppContent = () => {
+  const { t } = useI18n();
   return (
     <Router basename={import.meta.env.BASE_URL}>
       <div className="flex flex-col min-h-screen">
@@ -33,9 +37,9 @@ const App = () => {
             <Route path="/create-scheme" element={<CreateScheme />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/ministries" element={<Ministries />} />
+            <Route path="/saved-schemes" element={<SavedSchemesSection />} />
             <Route path="/locations" element={<Locations />} />
             <Route path="/how-it-works" element={<InfoPage kind="how-it-works" />} />
-            <Route path="/statistics" element={<InfoPage kind="statistics" />} />
             <Route path="/help" element={<InfoPage kind="help" />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -51,7 +55,7 @@ const App = () => {
                   <span className="text-2xl font-bold text-white tracking-tight">GovScheme</span>
                 </div>
                 <p className="text-sm leading-relaxed mb-6">
-                  A centralized platform for citizens to discover and apply for government schemes efficiently. Empowerment through direct digital access.
+                  {t("A centralized platform for citizens to discover and apply for government schemes efficiently. Empowerment through direct digital access.")}
                 </p>
                 <div className="flex gap-4">
                   <Button variant="ghost" size="icon" className="bg-white/5 hover:bg-white/10 text-white rounded-full">
@@ -67,45 +71,45 @@ const App = () => {
               </div>
               
               <div>
-                <h4 className="text-white font-semibold mb-6">Quick Links</h4>
+                <h4 className="text-white font-semibold mb-6">{t("Quick Links")}</h4>
                 <ul className="space-y-4 text-sm">
-                  <li><Link to="#" className="hover:text-white transition-colors">About Portal</Link></li>
-                  <li><Link to="#" className="hover:text-white transition-colors">Central Schemes</Link></li>
-                  <li><Link to="#" className="hover:text-white transition-colors">State Schemes</Link></li>
-                  <li><Link to="#" className="hover:text-white transition-colors">UT Schemes</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("About Portal")}</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("Central Schemes")}</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("State Schemes")}</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("UT Schemes")}</Link></li>
                 </ul>
               </div>
 
               <div>
-                <h4 className="text-white font-semibold mb-6">Resources</h4>
+                <h4 className="text-white font-semibold mb-6">{t("Resources")}</h4>
                 <ul className="space-y-4 text-sm">
-                  <li><Link to="#" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                  <li><Link to="#" className="hover:text-white transition-colors">Terms of Service</Link></li>
-                  <li><Link to="#" className="hover:text-white transition-colors">User Manual</Link></li>
-                  <li><Link to="#" className="hover:text-white transition-colors">FAQs</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("Privacy Policy")}</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("Terms of Service")}</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("User Manual")}</Link></li>
+                  <li><Link to="#" className="hover:text-white transition-colors">{t("FAQs")}</Link></li>
                 </ul>
               </div>
 
               <div>
-                <h4 className="text-white font-semibold mb-6">Support</h4>
+                <h4 className="text-white font-semibold mb-6">{t("Support")}</h4>
                 <div className="space-y-4 text-sm">
                   <div className="flex items-start gap-3">
                     <Phone className="w-4 h-4 text-secondary mt-1" />
                     <div>
-                      <p className="text-white font-medium">Toll Free Helpline</p>
+                      <p className="text-white font-medium">{t("Toll Free Helpline")}</p>
                       <p>1800-123-4567</p>
                     </div>
                   </div>
-                  <p>National Portal of Bharat, MeitY, New Delhi - 110003</p>
+                  <p>{t("National Portal of Bharat, MeitY, New Delhi - 110003")}</p>
                 </div>
               </div>
             </div>
             
             <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
-              <p>&copy; 2024 National e-Governance Division. All Rights Reserved.</p>
+              <p>{t("© 2024 National e-Governance Division. All Rights Reserved.")}</p>
               <div className="flex gap-6">
-                <Link to="#" className="hover:text-white">Accessibility Statement</Link>
-                <Link to="#" className="hover:text-white">Site Map</Link>
+                <Link to="#" className="hover:text-white">{t("Accessibility Statement")}</Link>
+                <Link to="#" className="hover:text-white">{t("Site Map")}</Link>
               </div>
             </div>
           </div>
@@ -114,5 +118,13 @@ const App = () => {
     </Router>
   );
 };
+
+const App = () => (
+  <I18nProvider>
+    <SavedSchemesProvider>
+      <AppContent />
+    </SavedSchemesProvider>
+  </I18nProvider>
+);
 
 export default App;

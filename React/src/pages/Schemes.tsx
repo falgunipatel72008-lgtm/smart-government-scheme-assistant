@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import SavedSchemeButton from "@/components/SavedSchemeButton";
 import {
   fetchCategories,
   fetchSchemes,
   type Category,
   type SchemeRecord,
 } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 const PAGE_SIZE = 8;
 const ALL_CATEGORIES = "All categories";
@@ -26,16 +28,21 @@ function parseId(value: string | null): number | undefined {
   return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 }
 
-function coverageLabel(scheme: SchemeRecord) {
-  if (scheme.coverage.type === "ALL_INDIA") return "All India";
+function coverageLabel(
+  scheme: SchemeRecord,
+  t: (text: string) => string,
+  locationName: (name: string) => string,
+) {
+  if (scheme.coverage.type === "ALL_INDIA") return t("All India");
   const locations = [
-    ...scheme.coverage.states.map((location) => location.name),
-    ...scheme.coverage.unionTerritories.map((location) => location.name),
+    ...scheme.coverage.states.map((location) => locationName(location.name)),
+    ...scheme.coverage.unionTerritories.map((location) => locationName(location.name)),
   ];
-  return locations.join(", ") || "Selected locations";
+  return locations.join(", ") || t("Selected locations");
 }
 
 export default function Schemes() {
+  const { t, categoryName, ministryName, locationName, schemeName } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
   const [schemes, setSchemes] = useState<SchemeRecord[]>([]);
@@ -171,10 +178,10 @@ export default function Schemes() {
     <div className="bg-slate-50">
       <section className="bg-slate-900 py-14 text-white">
         <div className="container mx-auto px-4">
-          <Badge variant="outline" className="mb-4 border-secondary text-secondary">Scheme directory</Badge>
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">All government schemes</h1>
+          <Badge variant="outline" className="mb-4 border-secondary text-secondary">{t("Scheme directory")}</Badge>
+          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">{t("All government schemes")}</h1>
           <p className="mt-4 max-w-2xl text-lg text-slate-300">
-            Browse schemes saved in the database, including their benefits and eligibility information.
+            {t("Browse schemes saved in the database, including their benefits and eligibility information.")}
           </p>
           <div className="relative mt-8 max-w-2xl">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -182,8 +189,8 @@ export default function Schemes() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               className="h-14 rounded-xl border-none bg-white pl-12 text-slate-900"
-              placeholder="Search schemes, ministries or benefits..."
-              aria-label="Search schemes"
+              placeholder={t("Search schemes, ministries or benefits...")}
+              aria-label={t("Search schemes")}
             />
           </div>
         </div>
@@ -192,13 +199,13 @@ export default function Schemes() {
       <main className="container mx-auto px-4 py-12">
         <div className="mb-8 flex flex-col gap-5">
           <div>
-            <h2 className="text-2xl font-bold">Browse schemes</h2>
+            <h2 className="text-2xl font-bold">{t("Browse schemes")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {schemesLoading ? "Loading schemes…" : `Showing ${startItem}–${endItem} of ${pagination.totalItems} schemes`}
+              {schemesLoading ? t("Loading schemes…") : t("Showing {start}–{end} of {total} schemes", { start: startItem, end: endItem, total: pagination.totalItems })}
             </p>
             {selectedMasterFilter && (
               <p className="mt-1 text-sm text-muted-foreground">
-                Filtered by {selectedMasterFilter[1]} (ID {selectedMasterValue})
+                {t("Filtered by {filter} (ID {id})", { filter: t(selectedMasterFilter[1]), id: selectedMasterValue ?? "" })}
               </p>
             )}
           </div>
@@ -209,7 +216,7 @@ export default function Schemes() {
               onClick={() => selectCategory()}
               className={requestedCategoryId === undefined ? "bg-primary" : "bg-white"}
             >
-              {ALL_CATEGORIES}
+              {t(ALL_CATEGORIES)}
             </Button>
             {activeCategories.map((category) => (
               <Button
@@ -219,21 +226,21 @@ export default function Schemes() {
                 onClick={() => selectCategory(category.id)}
                 className={requestedCategoryId === category.id ? "bg-primary" : "bg-white"}
               >
-                {category.name}
+                {categoryName(category.name)}
               </Button>
             ))}
             {(hasFilters || submittedQuery) && (
-              <Button type="button" variant="ghost" onClick={clearFilters}>Clear filters</Button>
+              <Button type="button" variant="ghost" onClick={clearFilters}>{t("Clear filters")}</Button>
             )}
           </div>
         </div>
 
-        {categoriesLoading && <p role="status" className="mb-6 text-sm text-muted-foreground">Loading categories…</p>}
+        {categoriesLoading && <p role="status" className="mb-6 text-sm text-muted-foreground">{t("Loading categories…")}</p>}
         {categoryError && (
           <div role="alert" className="mb-6 flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800 sm:flex-row sm:items-center sm:justify-between">
-            <p>Category filters could not be loaded: {categoryError}</p>
+            <p>{t("Category filters could not be loaded:")} {categoryError}</p>
             <Button type="button" variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Retry
+              <RefreshCw className="mr-2 h-4 w-4" /> {t("Retry")}
             </Button>
           </div>
         )}
@@ -241,12 +248,12 @@ export default function Schemes() {
           <div role="alert" className="mb-6 flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800 sm:flex-row sm:items-center sm:justify-between">
             <p>{schemeError}</p>
             <Button type="button" variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Retry
+              <RefreshCw className="mr-2 h-4 w-4" /> {t("Retry")}
             </Button>
           </div>
         )}
 
-        {schemesLoading && <p role="status" className="py-12 text-center text-muted-foreground">Loading schemes…</p>}
+        {schemesLoading && <p role="status" className="py-12 text-center text-muted-foreground">{t("Loading schemes…")}</p>}
 
         {!schemesLoading && !schemeError && !categoryUnavailable && schemes.length > 0 && (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -257,23 +264,23 @@ export default function Schemes() {
                     <div className="flex flex-wrap gap-2">
                       {scheme.categories.map((category) => (
                         <Badge key={category.id} variant="secondary" className="bg-slate-100 text-slate-600">
-                          {category.name}
+                          {categoryName(category.name)}
                         </Badge>
                       ))}
                     </div>
                     {scheme.code && <Badge variant="outline">{scheme.code}</Badge>}
                   </div>
-                  <h2 className="text-xl font-semibold tracking-tight">{scheme.name}</h2>
+                  <h2 className="text-xl font-semibold tracking-tight">{schemeName(scheme.code, scheme.name)}</h2>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4 space-y-2 text-sm text-muted-foreground">
                     <p className="flex items-start gap-2">
                       <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span>{scheme.ministry.name}</span>
+                      <span>{ministryName(scheme.ministry.name)}</span>
                     </p>
                     <p className="flex items-start gap-2">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span>{coverageLabel(scheme)}</span>
+                      <span>{coverageLabel(scheme, t, locationName)}</span>
                     </p>
                   </div>
                   {scheme.details.items[0] && (
@@ -281,15 +288,16 @@ export default function Schemes() {
                   )}
                   {scheme.benefits.items.length > 0 && (
                     <div className="border-y border-slate-100 py-3">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Benefits</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("Benefits")}</p>
                       <p className="mt-1 text-sm font-semibold text-primary">{scheme.benefits.items[0]}</p>
                     </div>
                   )}
                   <Button asChild variant="outline" className="group mt-5 w-full border-primary text-primary hover:bg-primary hover:text-white">
                     <Link to={`/schemes/${scheme.id}`}>
-                      View scheme details <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      {t("View scheme details")} <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
+                  <SavedSchemeButton schemeId={scheme.id} className="mt-3 w-full" />
                 </CardContent>
               </Card>
             ))}
@@ -299,27 +307,27 @@ export default function Schemes() {
         {!schemesLoading && !schemeError && (categoryUnavailable || schemes.length === 0) && (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
             <Search className="mx-auto mb-4 h-8 w-8 text-slate-400" />
-            <h3 className="text-lg font-bold">{categoryUnavailable ? "Category not available" : "No schemes found"}</h3>
+            <h3 className="text-lg font-bold">{t(categoryUnavailable ? "Category not available" : "No schemes found")}</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               {categoryUnavailable
-                ? "The selected category is not available."
-                : "Try another search term or filter. Schemes will appear here when they have been saved."}
+                ? t("The selected category is not available.")
+                : t("Try another search term or filter. Schemes will appear here when they have been saved.")}
             </p>
           </div>
         )}
 
         {!schemesLoading && !schemeError && pagination.totalPages > 1 && (
-          <nav aria-label="Scheme pages" className="mt-8 flex items-center justify-center gap-4">
+          <nav aria-label={t("Scheme pages")} className="mt-8 flex items-center justify-center gap-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => setPage(pagination.page - 1)}
               disabled={!pagination.hasPrevious}
             >
-              <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+              <ChevronLeft className="mr-1 h-4 w-4" /> {t("Previous")}
             </Button>
             <span className="text-sm text-muted-foreground">
-              Page {pagination.page} of {pagination.totalPages}
+              {t("Page {page} of {total}", { page: pagination.page, total: pagination.totalPages })}
             </span>
             <Button
               type="button"
@@ -327,7 +335,7 @@ export default function Schemes() {
               onClick={() => setPage(pagination.page + 1)}
               disabled={!pagination.hasNext}
             >
-              Next <ChevronRight className="ml-1 h-4 w-4" />
+              {t("Next")} <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </nav>
         )}

@@ -16,6 +16,7 @@ import {
   type Location,
   type Ministry,
 } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 type Option = {
   value: string;
@@ -134,6 +135,7 @@ function OptionChecklist({
   onChange: (selected: string[]) => void;
   helperText?: string;
 }) {
+  const { t } = useI18n();
   const toggleOption = (value: string, checked: boolean) => {
     onChange(
       checked
@@ -147,7 +149,7 @@ function OptionChecklist({
       <legend className="font-semibold">{label}</legend>
       {helperText && <p className="text-sm text-muted-foreground">{helperText}</p>}
       {options.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No active options are available.</p>
+        <p className="text-sm text-muted-foreground">{t("No active options are available.")}</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {options.map((option) => (
@@ -175,6 +177,7 @@ function locationKey(location: Location) {
 }
 
 export default function CreateScheme() {
+  const { t, categoryName, ministryName, locationName } = useI18n();
   const [categories, setCategories] = useState<Category[]>([]);
   const [criteriaDimensions, setCriteriaDimensions] = useState<CriteriaDimension[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -225,10 +228,10 @@ export default function CreateScheme() {
     () => locations.filter((location) => location.isUnionTerritory),
     [locations],
   );
-  const ministryName = ministries.find((ministry) => String(ministry.id) === draft.ministryId)?.ministry;
+  const selectedMinistryName = ministries.find((ministry) => String(ministry.id) === draft.ministryId)?.ministry;
   const selectedCategoryNames = categories
     .filter((category) => draft.categoryIds.includes(String(category.id)))
-    .map((category) => category.name);
+    .map((category) => categoryName(category.name));
   const selectedLocations = locations.filter((location) => draft.locationKeys.includes(locationKey(location)));
 
   const workStatusDimension = criteriaDimensions.find((dimension) => dimension.code === "WORK_STATUS");
@@ -327,20 +330,20 @@ export default function CreateScheme() {
 
   const validateMetadata = () => {
     if (!draft.name.trim()) {
-      setFormError("Enter a scheme name.");
+      setFormError(t("Enter a scheme name."));
       return false;
     }
     if (!draft.ministryId) {
-      setFormError("Select a ministry.");
+      setFormError(t("Select a ministry."));
       return false;
     }
     if (draft.categoryIds.length === 0) {
-      setFormError("Select at least one subject category.");
+      setFormError(t("Select at least one subject category."));
       setShowPreview(false);
       return false;
     }
     if (!draft.allIndia && draft.locationKeys.length === 0) {
-      setFormError("Select at least one state or union territory, or choose All India.");
+      setFormError(t("Select at least one state or union territory, or choose All India."));
       setShowPreview(false);
       return false;
     }
@@ -366,14 +369,14 @@ export default function CreateScheme() {
       !content.items.some((item) => item.trim())
     );
     if (missingContent) {
-      setFormError(`Add at least one item to ${missingContent[0].toLowerCase()}.`);
+      setFormError(t("Add at least one item to {section}.", { section: t(missingContent[0]).toLowerCase() }));
       return;
     }
 
     const enabledModes = (["online", "offline"] as const)
       .filter((modeName) => draft.applicationProcess[modeName].enabled);
     if (enabledModes.length === 0) {
-      setFormError("Enable online or offline application and add at least one subsection.");
+      setFormError(t("Enable online or offline application and add at least one subsection."));
       return;
     }
     const invalidMode = enabledModes.find((modeName) => {
@@ -383,7 +386,7 @@ export default function CreateScheme() {
       );
     });
     if (invalidMode) {
-      setFormError(`Complete each ${invalidMode} application subsection with a title and at least one step.`);
+      setFormError(t("Complete each {mode} application subsection with a title and at least one step.", { mode: t(`${invalidMode} application`) }));
       return;
     }
 
@@ -396,7 +399,7 @@ export default function CreateScheme() {
         || (min !== null && max !== null && min > max);
     });
     if (invalidNumericRule) {
-      setFormError("Each numeric criterion must have valid bounds, with the minimum no greater than the maximum.");
+      setFormError(t("Each numeric criterion must have valid bounds, with the minimum no greater than the maximum."));
       return;
     }
 
@@ -460,7 +463,7 @@ export default function CreateScheme() {
       setSavedSchemeId(savedScheme.id);
       setShowPreview(false);
     } catch (requestError: unknown) {
-      setFormError(requestError instanceof Error ? requestError.message : "Unable to save the scheme.");
+      setFormError(requestError instanceof Error ? requestError.message : t("Unable to save the scheme."));
     } finally {
       setSaving(false);
     }
@@ -471,75 +474,75 @@ export default function CreateScheme() {
       <section className="bg-slate-900 py-12 text-white">
         <div className="container mx-auto px-4">
           <Badge variant="outline" className="mb-4 border-secondary text-secondary">
-            Public prototype
+            {t("Public prototype")}
           </Badge>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Create a scheme</h1>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t("Create a scheme")}</h1>
           <p className="mt-3 max-w-3xl text-slate-300">
-            Add scheme information and eligibility criteria. This prototype saves the scheme to the backend.
+            {t("Add scheme information and eligibility criteria. This prototype saves the scheme to the backend.")}
           </p>
         </div>
       </section>
 
       <main className="container mx-auto max-w-5xl space-y-6 px-4 py-10">
-        {loading && <p role="status" className="text-sm text-muted-foreground">Loading ministries, locations, categories, and eligibility criteria…</p>}
+        {loading && <p role="status" className="text-sm text-muted-foreground">{t("Loading ministries, locations, categories, and eligibility criteria…")}</p>}
         {error && (
           <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800 sm:flex-row sm:items-center sm:justify-between">
-            <p>Could not load master data: {error}</p>
+            <p>{t("Could not load master data:")} {error}</p>
             <Button type="button" variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
-              Retry
+              {t("Retry")}
             </Button>
           </div>
         )}
         {savedSchemeId !== null && (
           <div role="status" className="rounded-xl border border-green-200 bg-green-50 p-5 text-green-800">
-            Scheme created successfully (ID: {savedSchemeId}).
+            {t("Scheme created successfully (ID: {id}).", { id: savedSchemeId })}
           </div>
         )}
 
         <form onSubmit={onCreate} className="space-y-6">
           <Card className="bg-white">
-            <CardHeader><CardTitle>Scheme details</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t("Scheme details")}</CardTitle></CardHeader>
             <CardContent className="grid gap-5 md:grid-cols-2">
               <label className="space-y-2 text-sm font-medium">
-                Scheme name <span className="text-red-600">*</span>
+                {t("Scheme name")} <span className="text-red-600">*</span>
                 <Input
                   required
                   value={draft.name}
                   onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="For example, Rural Tailoring Assistance"
+                  placeholder={t("For example, Rural Tailoring Assistance")}
                 />
               </label>
               <label className="space-y-2 text-sm font-medium">
-                Scheme code
+                {t("Scheme code")}
                 <Input
                   value={draft.code}
                   onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))}
-                  placeholder="Optional unique identifier"
+                  placeholder={t("Optional unique identifier")}
                 />
               </label>
             </CardContent>
           </Card>
 
           <StructuredContentEditor
-            title="Details"
-            description="Describe the scheme. Use paragraphs or format the details as a list."
-            itemLabel="Detail"
+            title={t("Details")}
+            description={t("Describe the scheme. Use paragraphs or format the details as a list.")}
+            itemLabel={t("Detail")}
             content={draft.details}
             onChange={(content) => updateContent("details", content)}
           />
 
           <StructuredContentEditor
-            title="Benefits"
-            description="Add one benefit per item and choose how the list should be presented."
-            itemLabel="Benefit"
+            title={t("Benefits")}
+            description={t("Add one benefit per item and choose how the list should be presented.")}
+            itemLabel={t("Benefit")}
             content={draft.benefits}
             onChange={(content) => updateContent("benefits", content)}
           />
 
           <StructuredContentEditor
-            title="Eligibility information"
-            description="Add a readable explanation of the eligibility requirements. The selectable criteria are configured separately below."
-            itemLabel="Eligibility point"
+            title={t("Eligibility information")}
+            description={t("Add a readable explanation of the eligibility requirements. The selectable criteria are configured separately below.")}
+            itemLabel={t("Eligibility point")}
             content={draft.eligibilityInfo}
             onChange={(content) => updateContent("eligibilityInfo", content)}
           />
@@ -550,18 +553,18 @@ export default function CreateScheme() {
           />
 
           <StructuredContentEditor
-            title="Documents required"
-            description="List the documents applicants should prepare."
-            itemLabel="Document"
+            title={t("Documents required")}
+            description={t("List the documents applicants should prepare.")}
+            itemLabel={t("Document")}
             content={draft.documents}
             onChange={(content) => updateContent("documents", content)}
           />
 
           <Card className="bg-white">
-            <CardHeader><CardTitle>Ministry and subject category</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t("Ministry and subject category")}</CardTitle></CardHeader>
             <CardContent className="grid gap-6 md:grid-cols-2">
               <label className="space-y-2 text-sm font-medium">
-                Ministry <span className="text-red-600">*</span>
+                {t("Ministry")} <span className="text-red-600">*</span>
                 <select
                   required
                   value={draft.ministryId}
@@ -569,19 +572,19 @@ export default function CreateScheme() {
                   disabled={loading || ministries.length === 0}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value="">Select a ministry</option>
+                  <option value="">{t("Select a ministry")}</option>
                   {ministries.map((ministry) => (
-                    <option key={ministry.id} value={ministry.id}>{ministry.ministry}</option>
+                    <option key={ministry.id} value={ministry.id}>{ministryName(ministry.ministry)}</option>
                   ))}
                 </select>
-                {ministries.length === 0 && !loading && <span className="block text-xs text-muted-foreground">No active ministries are available.</span>}
+                {ministries.length === 0 && !loading && <span className="block text-xs text-muted-foreground">{t("No active ministries are available.")}</span>}
               </label>
 
               <fieldset className="space-y-3">
-                <legend className="text-sm font-medium">Subject categories <span className="text-red-600">*</span></legend>
-                <p className="text-sm text-muted-foreground">Choose one or more topics, such as education or housing.</p>
+                <legend className="text-sm font-medium">{t("Subject categories")} <span className="text-red-600">*</span></legend>
+                <p className="text-sm text-muted-foreground">{t("Choose one or more topics, such as education or housing.")}</p>
                 {categories.length === 0 && !loading ? (
-                  <p className="text-sm text-muted-foreground">No active categories are available.</p>
+                  <p className="text-sm text-muted-foreground">{t("No active categories are available.")}</p>
                 ) : (
                   <div className="grid max-h-48 gap-2 overflow-y-auto rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
                     {categories.map((category) => (
@@ -591,7 +594,7 @@ export default function CreateScheme() {
                           checked={draft.categoryIds.includes(String(category.id))}
                           onCheckedChange={(checked) => toggleCategory(String(category.id), checked === true)}
                         />
-                        {category.name}
+                        {categoryName(category.name)}
                       </label>
                     ))}
                   </div>
@@ -601,7 +604,7 @@ export default function CreateScheme() {
           </Card>
 
           <Card className="bg-white">
-            <CardHeader><CardTitle>Geographic coverage</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{t("Geographic coverage")}</CardTitle></CardHeader>
             <CardContent className="space-y-5">
               <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
                 <Checkbox
@@ -612,11 +615,11 @@ export default function CreateScheme() {
                     locationKeys: checked === true ? [] : current.locationKeys,
                   }))}
                 />
-                Available across India
+                {t("Available across India")}
               </label>
               {!draft.allIndia && (
                 <div className="grid gap-6 md:grid-cols-2">
-                  {[{ label: "States", items: states }, { label: "Union territories", items: unionTerritories }].map((group) => (
+                  {                  [{ label: t("States"), items: states }, { label: t("Union territories"), items: unionTerritories }].map((group) => (
                     <fieldset key={group.label} className="space-y-3">
                       <legend className="font-semibold">{group.label}</legend>
                       <div className="grid max-h-56 gap-2 overflow-y-auto rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
@@ -629,7 +632,7 @@ export default function CreateScheme() {
                                 checked={draft.locationKeys.includes(key)}
                                 onCheckedChange={(checked) => toggleLocation(key, checked === true)}
                               />
-                              {location.name}
+                              {locationName(location.name)}
                             </label>
                           );
                         })}
@@ -643,9 +646,9 @@ export default function CreateScheme() {
 
           <Card className="bg-white">
             <CardHeader>
-              <CardTitle>Eligibility criteria</CardTitle>
+              <CardTitle>{t("Eligibility criteria")}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Select multiple options within a criterion to allow any selected value. Different criteria are combined.
+                {t("Select multiple options within a criterion to allow any selected value. Different criteria are combined.")}
               </p>
             </CardHeader>
             <CardContent className="space-y-7">
@@ -670,7 +673,7 @@ export default function CreateScheme() {
                             ? changeDisabilityStatus
                             : (selected) => updateCriteria(dimension.code, selected)
                       }
-                      helperText={dimension.code === "EMPLOYMENT_TYPE" ? "Shown because employed is selected." : undefined}
+                      helperText={dimension.code === "EMPLOYMENT_TYPE" ? t("Shown because employed is selected.") : undefined}
                     />
                   );
                 })}
@@ -700,12 +703,12 @@ export default function CreateScheme() {
 
           <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
             {formError && <p role="alert" className="self-center text-sm text-red-700">{formError}</p>}
-            <Button type="button" variant="outline" onClick={resetDraft}>Clear form</Button>
+            <Button type="button" variant="outline" onClick={resetDraft}>{t("Clear form")}</Button>
             <Button type="button" variant="outline" onClick={onPreview} disabled={loading || Boolean(error)}>
-              Preview configuration
+              {t("Preview configuration")}
             </Button>
             <Button type="submit" className="bg-primary" disabled={loading || saving || Boolean(error)}>
-              {saving ? "Saving scheme…" : "Create scheme"}
+              {saving ? t("Saving scheme…") : t("Create scheme")}
             </Button>
           </div>
         </form>
@@ -713,20 +716,20 @@ export default function CreateScheme() {
         {showPreview && (
           <Card className="border-primary/20 bg-white">
             <CardHeader>
-              <CardTitle>Configuration preview</CardTitle>
-              <p className="text-sm text-muted-foreground">Review the configuration before creating the scheme.</p>
+              <CardTitle>{t("Configuration preview")}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t("Review the configuration before creating the scheme.")}</p>
             </CardHeader>
             <CardContent className="grid gap-6 text-sm md:grid-cols-2">
               <div className="space-y-3">
-                <PreviewRow label="Name" value={draft.name} />
-                <PreviewRow label="Code" value={draft.code || "Not set"} />
-                <PreviewRow label="Ministry" value={ministryName || "Not selected"} />
-                <PreviewRow label="Subject categories" value={selectedCategoryNames.join(", ") || "Not selected"} />
+                <PreviewRow label={t("Name")} value={draft.name} />
+                <PreviewRow label={t("Code")} value={draft.code || t("Not set")} />
+                <PreviewRow label={t("Ministry")} value={selectedMinistryName ? ministryName(selectedMinistryName) : t("Not selected")} />
+                <PreviewRow label={t("Subject categories")} value={selectedCategoryNames.join(", ") || t("Not selected")} />
                 <PreviewRow
-                  label="Coverage"
+                  label={t("Coverage")}
                   value={draft.allIndia
-                    ? "All India"
-                    : selectedLocations.map((location) => location.name).join(", ") || "No locations selected"}
+                    ? t("All India")
+                    : selectedLocations.map((location) => locationName(location.name)).join(", ") || t("No locations selected")}
                 />
               </div>
               <div className="space-y-3">
@@ -748,17 +751,17 @@ export default function CreateScheme() {
                     const unit = NUMERIC_FIELD_DETAILS[dimension.code]?.unit ?? "";
                     const prefix = unit === "₹" ? "₹" : "";
                     const suffix = unit && unit !== "₹" ? ` ${unit}` : "";
-                    const min = rule.min ? `${prefix}${rule.min}${suffix}` : "No minimum";
-                    const max = rule.max ? `${prefix}${rule.max}${suffix}` : "No maximum";
+                    const min = rule.min ? `${prefix}${rule.min}${suffix}` : t("No minimum");
+                    const max = rule.max ? `${prefix}${rule.max}${suffix}` : t("No maximum");
                     return <PreviewRow key={dimension.code} label={dimension.name} value={`${min} – ${max}`} />;
                   })}
               </div>
               <div className="space-y-5 md:col-span-2">
-                <StructuredContentPreview title="Details" content={draft.details} />
-                <StructuredContentPreview title="Benefits" content={draft.benefits} />
-                <StructuredContentPreview title="Eligibility information" content={draft.eligibilityInfo} />
+                <StructuredContentPreview title={t("Details")} content={draft.details} />
+                <StructuredContentPreview title={t("Benefits")} content={draft.benefits} />
+                <StructuredContentPreview title={t("Eligibility information")} content={draft.eligibilityInfo} />
                 <ApplicationProcessPreview applicationProcess={draft.applicationProcess} />
-                <StructuredContentPreview title="Documents required" content={draft.documents} />
+                <StructuredContentPreview title={t("Documents required")} content={draft.documents} />
               </div>
             </CardContent>
           </Card>
@@ -781,11 +784,12 @@ function StructuredContentEditor({
   content: StructuredContent;
   onChange: (content: StructuredContent) => void;
 }) {
+  const { t } = useI18n();
   return (
     <Card className="bg-white">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <CardTitle>{t(title)}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t(description)}</p>
       </CardHeader>
       <CardContent className="space-y-5">
         <ContentFormatSelect
@@ -813,12 +817,13 @@ function ApplicationProcessEditor({
     update: (mode: ApplicationMode) => ApplicationMode,
   ) => void;
 }) {
+  const { t } = useI18n();
   return (
     <Card className="bg-white">
       <CardHeader>
-        <CardTitle>Application process</CardTitle>
+        <CardTitle>{t("Application process")}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Enable each available method. Each method can contain titled subsections and formatted steps.
+          {t("Enable each available method. Each method can contain titled subsections and formatted steps.")}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -840,7 +845,7 @@ function ApplicationProcessEditor({
                       : current.subsections,
                   }))}
                 />
-                {label}
+                {t(label)}
               </label>
 
               {mode.enabled && (
@@ -849,7 +854,7 @@ function ApplicationProcessEditor({
                     <div key={subsection.id} className="space-y-4 rounded-lg bg-slate-50 p-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                         <label className="flex-1 space-y-2 text-sm font-medium">
-                          Subsection title
+                          {t("Subsection title")}
                           <Input
                             value={subsection.title}
                             onChange={(event) => onModeChange(modeName, (current) => ({
@@ -858,7 +863,7 @@ function ApplicationProcessEditor({
                                 item.id === subsection.id ? { ...item, title: event.target.value } : item,
                               ),
                             }))}
-                            placeholder={`For example, ${label} steps`}
+                            placeholder={t("For example, {label} steps", { label: t(label) })}
                           />
                         </label>
                         <Button
@@ -869,7 +874,7 @@ function ApplicationProcessEditor({
                             subsections: current.subsections.filter((item) => item.id !== subsection.id),
                           }))}
                         >
-                          Remove subsection
+                          {t("Remove subsection")}
                         </Button>
                       </div>
                       <ContentFormatSelect
@@ -883,7 +888,7 @@ function ApplicationProcessEditor({
                         }))}
                       />
                       <EditableItems
-                        label="Step"
+                        label={t("Step")}
                         items={subsection.steps}
                         onChange={(steps) => onModeChange(modeName, (current) => ({
                           ...current,
@@ -892,7 +897,7 @@ function ApplicationProcessEditor({
                           ),
                         }))}
                       />
-                      <p className="text-xs text-muted-foreground">Subsection {subsectionIndex + 1}</p>
+                      <p className="text-xs text-muted-foreground">{t("Subsection {number}", { number: subsectionIndex + 1 })}</p>
                     </div>
                   ))}
                   <Button
@@ -903,7 +908,7 @@ function ApplicationProcessEditor({
                       subsections: [...current.subsections, createApplicationSubsection()],
                     }))}
                   >
-                    Add subsection
+                    {t("Add subsection")}
                   </Button>
                 </div>
               )}
@@ -924,9 +929,10 @@ function ContentFormatSelect({
   value: ContentFormat;
   onChange: (format: ContentFormat) => void;
 }) {
+  const { t } = useI18n();
   return (
     <label htmlFor={id} className="flex flex-col gap-2 text-sm font-medium sm:max-w-sm">
-      Display format
+      {t("Display format")}
       <select
         id={id}
         value={value}
@@ -937,7 +943,7 @@ function ContentFormatSelect({
         className="h-10 rounded-md border border-input bg-background px-3 text-sm font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {CONTENT_FORMATS.map((format) => (
-          <option key={format.value} value={format.value}>{format.label}</option>
+          <option key={format.value} value={format.value}>{t(format.label)}</option>
         ))}
       </select>
     </label>
@@ -953,6 +959,7 @@ function EditableItems({
   items: string[];
   onChange: (items: string[]) => void;
 }) {
+  const { t } = useI18n();
   const updateItem = (index: number, value: string) => {
     onChange(items.map((item, itemIndex) => itemIndex === index ? value : item));
   };
@@ -962,12 +969,12 @@ function EditableItems({
       {items.map((item, index) => (
         <div key={index} className="flex items-start gap-3">
           <label className="flex-1 space-y-2 text-sm font-medium">
-            {label} {index + 1}
+            {t(label)} {index + 1}
             <textarea
               value={item}
               onChange={(event) => updateItem(index, event.target.value)}
               className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-normal ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder={`Enter ${label.toLowerCase()}`}
+              placeholder={t("Enter {label}", { label: t(label).toLowerCase() })}
             />
           </label>
           <Button
@@ -975,24 +982,25 @@ function EditableItems({
             variant="ghost"
             size="sm"
             className="mt-7 shrink-0 text-muted-foreground"
-            aria-label={`Remove ${label.toLowerCase()} ${index + 1}`}
+            aria-label={t("Remove {label} {number}", { label: t(label).toLowerCase(), number: index + 1 })}
             onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
           >
-            Remove
+            {t("Remove")}
           </Button>
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" onClick={() => onChange([...items, ""])}>
-        Add {label.toLowerCase()}
+        {t("Add {label}", { label: t(label).toLowerCase() })}
       </Button>
     </div>
   );
 }
 
 function StructuredContentPreview({ title, content }: { title: string; content: StructuredContent }) {
+  const { t } = useI18n();
   return (
     <section className="rounded-xl border border-slate-200 p-4">
-      <h3 className="font-semibold">{title}</h3>
+      <h3 className="font-semibold">{t(title)}</h3>
       <FormattedContent format={content.format} items={content.items} />
     </section>
   );
@@ -1003,6 +1011,7 @@ function ApplicationProcessPreview({
 }: {
   applicationProcess: SchemeDraft["applicationProcess"];
 }) {
+  const { t } = useI18n();
   const modes = ([
     ["online", "Online application"],
     ["offline", "Offline application"],
@@ -1010,17 +1019,17 @@ function ApplicationProcessPreview({
 
   return (
     <section className="rounded-xl border border-slate-200 p-4">
-      <h3 className="font-semibold">Application process</h3>
+      <h3 className="font-semibold">{t("Application process")}</h3>
       {modes.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">No application method selected.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("No application method selected.")}</p>
       ) : (
         <div className="mt-3 space-y-4">
           {modes.map(([modeName, label]) => (
             <div key={modeName}>
-              <h4 className="font-medium">{label}</h4>
+              <h4 className="font-medium">{t(label)}</h4>
               {applicationProcess[modeName].subsections.map((subsection) => (
                 <div key={subsection.id} className="mt-2 rounded-lg bg-slate-50 p-3">
-                  <h5 className="text-sm font-semibold">{subsection.title || "Untitled subsection"}</h5>
+                  <h5 className="text-sm font-semibold">{subsection.title || t("Untitled subsection")}</h5>
                   <FormattedContent format={subsection.format} items={subsection.steps} />
                 </div>
               ))}
@@ -1033,9 +1042,10 @@ function ApplicationProcessPreview({
 }
 
 function FormattedContent({ format, items }: { format: ContentFormat; items: string[] }) {
+  const { t } = useI18n();
   const visibleItems = items.map((item) => item.trim()).filter(Boolean);
   if (visibleItems.length === 0) {
-    return <p className="mt-2 text-sm italic text-muted-foreground">No content entered.</p>;
+    return <p className="mt-2 text-sm italic text-muted-foreground">{t("No content entered.")}</p>;
   }
 
   if (format === "paragraphs") {
@@ -1051,7 +1061,7 @@ function FormattedContent({ format, items }: { format: ContentFormat; items: str
       <ol className="mt-2 space-y-2">
         {visibleItems.map((item, index) => (
           <li key={index} className="flex gap-3 text-sm">
-            <span className="shrink-0 font-semibold text-primary">Step {index + 1}</span>
+            <span className="shrink-0 font-semibold text-primary">{t("Step {number}", { number: index + 1 })}</span>
             <span>{item}</span>
           </li>
         ))}
@@ -1104,14 +1114,15 @@ function NumericRuleField({
   rule: NumericRule;
   onChange: (code: string, bound: keyof NumericRule, value: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <fieldset className="space-y-3">
       <legend className="font-semibold">{label}</legend>
-      <p className="text-sm text-muted-foreground">Leave a bound empty if there is no limit.</p>
+      <p className="text-sm text-muted-foreground">{t("Leave a bound empty if there is no limit.")}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {(["min", "max"] as const).map((bound) => (
           <label key={bound} className="space-y-2 text-sm">
-            <span className="font-medium">{bound === "min" ? "Minimum" : "Maximum"} ({unit})</span>
+            <span className="font-medium">{t(bound === "min" ? "Minimum" : "Maximum")} ({unit === "years" ? t(unit) : unit})</span>
             <Input
               type="number"
               min="0"
@@ -1119,7 +1130,7 @@ function NumericRuleField({
               step={step}
               value={rule[bound]}
               onChange={(event) => onChange(code, bound, event.target.value)}
-              placeholder="No limit"
+              placeholder={t("No limit")}
             />
           </label>
         ))}

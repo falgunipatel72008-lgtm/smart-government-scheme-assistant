@@ -1,0 +1,27 @@
+INSERT INTO master_categories (name, description)
+VALUES
+  ('Agriculture and Farming', 'Schemes supporting farmers, agricultural production, and farm livelihoods.'),
+  ('Health and Wellness', 'Schemes supporting healthcare access, treatment, and health and wellness services.'),
+  ('Women and Child Development', 'Schemes supporting women, mothers, and children through development services and assistance.'),
+  ('Employment and Skill Development', 'Schemes supporting jobs, vocational training, and skill development.'),
+  ('Social Welfare and Empowerment', 'Schemes supporting social inclusion and the empowerment of disadvantaged communities.'),
+  ('Housing and Shelter', 'Schemes supporting access to affordable housing and shelter.'),
+  ('Banking and Financial Services', 'Schemes supporting access to banking, credit, and financial services.'),
+  ('Business and Entrepreneurship', 'Schemes supporting businesses, entrepreneurs, and self-employment.'),
+  ('Rural Development', 'Schemes supporting rural livelihoods, communities, and development.'),
+  ('Science and Technology', 'Schemes supporting science, research, innovation, and technology.'),
+  ('Transport and Infrastructure', 'Schemes supporting transport, connectivity, and infrastructure development.'),
+  ('Environment and Energy', 'Schemes supporting environmental protection, clean energy, and energy access.'),
+  ('Sports and Culture', 'Schemes supporting sports, cultural activities, and heritage.'),
+  ('Tourism and Travel', 'Schemes supporting tourism, travel, and related livelihoods.'),
+  ('Food Security', 'Schemes supporting access to food and nutrition security.'),
+  ('Drinking Water and Sanitation', 'Schemes supporting safe drinking water, sanitation, and hygiene.'),
+  ('Labour Welfare', 'Schemes supporting workers'' rights, welfare, and social protection.'),
+  ('Tribal Development', 'Schemes supporting the welfare and development of tribal communities.'),
+  ('Fisheries and Animal Husbandry', 'Schemes supporting fisheries, livestock, and animal husbandry.'),
+  ('Financial Assistance', 'Schemes providing grants, subsidies, and other financial assistance.'),
+  ('Pension and Retirement Benefits', 'Schemes supporting pensions and benefits during retirement.'),
+  ('Digital Services', 'Schemes supporting access to digital services and digital inclusion.'),
+  ('Public Safety and Justice', 'Schemes supporting public safety, legal services, and access to justice.'),
+  ('Child Protection and Welfare', 'Schemes supporting child protection, care, and welfare.')
+ON DUPLICATE KEY UPDATE is_active = TRUE;

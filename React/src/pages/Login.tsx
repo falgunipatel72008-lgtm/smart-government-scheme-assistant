@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/lib/i18n";
 
 export default function Login() {
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -22,35 +24,35 @@ export default function Login() {
             <Globe className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-2xl">Welcome back</CardTitle>
+            <CardTitle className="text-2xl">{t("Welcome back")}</CardTitle>
             <p className="mt-2 text-sm text-muted-foreground">
-              Sign in to view saved schemes and track your applications.
+              {t("Sign in to view saved schemes and track your applications.")}
             </p>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email">{t("Email address")}</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input id="email" name="email" type="email" placeholder="you@example.com" className="pl-10" required />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("Password")}</Label>
               <div className="relative">
                 <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="password" name="password" type="password" placeholder="Enter your password" className="pl-10" required />
+                <Input id="password" name="password" type="password" placeholder={t("Enter your password")} className="pl-10" required />
               </div>
             </div>
             <Button type="submit" className="w-full bg-primary text-white hover:bg-primary/90">
-              Sign In
+              {t("Sign In")}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            New to GovScheme? <Link to="/" className="font-semibold text-primary hover:underline">Explore schemes</Link>
+            {t("New to GovScheme?")} <Link to="/" className="font-semibold text-primary hover:underline">{t("Explore schemes")}</Link>
           </p>
         </CardContent>
       </Card>

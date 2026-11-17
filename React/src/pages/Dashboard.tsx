@@ -1,190 +1,123 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Layers, MapPin, RefreshCw } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowRight, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  fetchCategories,
-  fetchLocations,
-  fetchMinistries,
-  type Category,
-  type Location,
-  type Ministry,
-} from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { useI18n } from "@/lib/i18n";
 
-type DashboardData = {
-  categories: Category[];
-  locations: Location[];
-  ministries: Ministry[];
-};
+const SCHEMES = [
+  { title: "PM Scholarship Scheme", cat: "Education", benefit: "₹50,000 / year", status: "Active", applicants: "2.4M+" },
+  { title: "National Health Mission", cat: "Healthcare", benefit: "Free Coverage", status: "Active", applicants: "15M+" },
+  { title: "Kisan Samman Nidhi", cat: "Agriculture", benefit: "₹6,000 / year", status: "Open", applicants: "12M+" },
+  { title: "Awas Yojana (Urban)", cat: "Housing", benefit: "Interest Subsidy", status: "Verified", applicants: "4.8M+" },
+];
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
+  const searchSchemes = (searchTerm: string) => {
+    const term = searchTerm.trim();
+    const params = new URLSearchParams();
+    if (term) params.set("search", term);
+    const queryString = params.toString();
+    navigate(`/schemes${queryString ? `?${queryString}` : ""}`);
+  };
 
-    Promise.all([
-      fetchCategories(controller.signal),
-      fetchLocations(controller.signal),
-      fetchMinistries(controller.signal),
-    ])
-      .then(([categories, locations, ministries]) => setData({ categories, locations, ministries }))
-      .catch((requestError: unknown) => {
-        if (!controller.signal.aborted) {
-          setError(requestError instanceof Error ? requestError.message : "Unable to load master data.");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [reloadKey]);
-
-  const categories = (data?.categories ?? []).filter((category) => category.isActive).slice(0, 3);
-  const ministries = (data?.ministries ?? []).filter((ministry) => ministry.isActive).slice(0, 3);
-  const locations = (data?.locations ?? []).filter((location) => location.isActive);
-  const areas = [
-    ...locations.filter((location) => !location.isUnionTerritory).slice(0, 2),
-    ...locations.filter((location) => location.isUnionTerritory).slice(0, 2),
-  ];
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    searchSchemes(query);
+  };
 
   return (
-    <div className="bg-slate-50">
-      <section className="bg-primary py-14 text-white">
-        <div className="container mx-auto flex flex-col justify-between gap-8 px-4 md:flex-row md:items-end">
-          <div>
-            <Badge variant="outline" className="mb-4 border-secondary text-secondary">Master data</Badge>
-            <h1 className="text-4xl font-bold tracking-tight">Explore master data.</h1>
-            <p className="mt-3 max-w-xl text-primary-foreground/75">
-              Browse categories, ministries, states, and union territories.
-            </p>
+    <>
+    <section className="flex min-h-[calc(100vh-6.5rem)] items-center justify-center bg-slate-50 px-4 py-16">
+      <div className="w-full max-w-3xl text-center">
+        <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-secondary">
+          {t("Government schemes, in one place")}
+        </p>
+        <h1 className="mb-5 text-4xl font-bold leading-tight tracking-tight text-primary md:text-6xl">
+          {t("Find support for you and your family.")}
+        </h1>
+        <p className="mx-auto mb-9 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+          {t("Search official government schemes by name, need or category. Each listing explains who can apply, what documents are needed and where to begin.")}
+        </p>
+
+        <form onSubmit={handleSubmit} className="mx-auto flex max-w-2xl flex-col gap-3 sm:flex-row">
+          <div className="relative flex-grow">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="h-14 rounded-lg border-slate-200 bg-white pl-12 text-slate-900 shadow-sm"
+              placeholder={t("Try “pension”, “farmer” or “scholarship”")}
+              aria-label={t("Search schemes")}
+            />
           </div>
-          <Button asChild className="bg-secondary text-white hover:bg-secondary/90">
-            <Link to="/categories">View categories <ArrowRight className="ml-2 h-4 w-4" /></Link>
+          <Button type="submit" size="lg" className="h-14 rounded-lg bg-primary px-8 text-base font-semibold text-white hover:bg-primary/90">
+            {t("Search schemes")}
           </Button>
+        </form>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+          <span>{t("Common searches:")}</span>
+          {[
+            ["pension", "pension"],
+            ["education", "education"],
+            ["healthcare", "healthcare"],
+          ].map(([term, label]) => (
+            <button
+              key={term}
+              type="button"
+              onClick={() => searchSchemes(term)}
+              className="font-medium text-primary underline decoration-primary/30 underline-offset-4 hover:decoration-primary"
+            >
+              {t(label)}
+            </button>
+          ))}
         </div>
-      </section>
+      </div>
+    </section>
+    <section className="bg-white py-16 md:py-20">
+      <div className="container mx-auto px-4">
+        <div className="mx-auto mb-12 max-w-2xl text-center">
+          <h2 className="mb-4 text-3xl font-bold">{t("Schemes people often look for")}</h2>
+          <p className="text-muted-foreground">{t("A few places to begin. Check each scheme’s details before applying.")}</p>
+        </div>
 
-      <main className="container mx-auto space-y-8 px-4 py-10">
-        {loading && <p role="status" className="text-muted-foreground">Loading master data…</p>}
-        {error && (
-          <div role="alert" className="flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-5 text-red-800 sm:flex-row sm:items-center sm:justify-between">
-            <p>{error}</p>
-            <Button variant="outline" onClick={() => setReloadKey((key) => key + 1)}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Retry
-            </Button>
-          </div>
-        )}
-
-        {data && !error && (
-          <>
-            <section>
-              <div className="mb-5 flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold">Categories</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Active category master data.</p>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {SCHEMES.map((scheme) => (
+            <Card key={scheme.title} className="border-slate-200 transition-colors hover:border-primary/50">
+              <CardHeader className="pb-4">
+                <div className="mb-4 flex items-start justify-between gap-2">
+                  <Badge variant="secondary" className="border-none bg-slate-100 text-slate-600">{t(scheme.cat)}</Badge>
+                  <Badge className="border-none bg-blue-50 text-blue-600 hover:bg-blue-50">{t(scheme.status)}</Badge>
                 </div>
-                <Button asChild variant="link" className="shrink-0">
-                  <Link to="/categories">View all categories <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                </Button>
-              </div>
-              {categories.length ? (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {categories.map((category) => (
-                    <Card key={category.id} className="bg-white">
-                      <CardContent className="flex items-start gap-4 p-5">
-                        {category.imageUrl ? (
-                          <img src={category.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
-                        ) : (
-                          <Layers className="mt-1 h-5 w-5 shrink-0 text-primary" />
-                        )}
-                        <div>
-                          <h3 className="font-semibold">{category.name}</h3>
-                          {category.description && <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>}
-                        </div>
-                      </CardContent>
-                      <CardContent className="pt-0">
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={`/schemes?categoryId=${category.id}`}>Show schemes</Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <CardTitle className="text-lg leading-snug">{t(scheme.title)}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="text-muted-foreground">{t("Benefit")}</span>
+                    <span className="text-right font-bold text-primary">{scheme.benefit}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{t("Applicants")}</span>
+                    <span className="font-bold">{scheme.applicants}</span>
+                  </div>
+                  <Button variant="outline" className="group mt-2 w-full border-primary text-primary transition-all hover:bg-primary hover:text-white">
+                    {t("Check Eligibility")} <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Button>
                 </div>
-              ) : <p className="rounded-xl border border-dashed bg-white p-6 text-sm text-muted-foreground">No active categories are available.</p>}
-            </section>
-
-            <section>
-              <div className="mb-5 flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold">Ministries</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Active ministry master data.</p>
-                </div>
-                <Button asChild variant="link" className="shrink-0">
-                  <Link to="/ministries">View all ministries <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                </Button>
-              </div>
-              {ministries.length ? (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {ministries.map((ministry) => (
-                    <Card key={ministry.id} className="bg-white">
-                      <CardHeader><CardTitle className="text-lg">{ministry.ministry}</CardTitle></CardHeader>
-                      <CardContent className="space-y-4 pt-0">
-                        {ministry.description && <p className="text-sm text-muted-foreground">{ministry.description}</p>}
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={`/schemes?ministryId=${ministry.id}`}>Show schemes</Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : <p className="rounded-xl border border-dashed bg-white p-6 text-sm text-muted-foreground">No active ministries are available.</p>}
-            </section>
-
-            <section>
-              <div className="mb-5 flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold">States and union territories</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">A sample of active areas.</p>
-                </div>
-                <Button asChild variant="link" className="shrink-0">
-                  <Link to="/locations">View all areas <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                </Button>
-              </div>
-              {areas.length ? (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  {areas.map((location) => (
-                    <Card key={`${location.isUnionTerritory ? "ut" : "state"}-${location.id}`} className="bg-white">
-                      <CardContent className="flex items-center gap-3 p-5">
-                        <MapPin className="h-5 w-5 shrink-0 text-primary" />
-                        <div>
-                          <p className="font-semibold">{location.name}</p>
-                          <p className="text-sm text-muted-foreground">{location.isUnionTerritory ? "Union Territory" : "State"}</p>
-                        </div>
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={location.isUnionTerritory
-                            ? `/schemes?unionTerritoryId=${location.id}`
-                            : `/schemes?stateId=${location.id}`}>
-                            Show schemes
-                          </Link>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : <p className="rounded-xl border border-dashed bg-white p-6 text-sm text-muted-foreground">No active areas are available.</p>}
-            </section>
-          </>
-        )}
-      </main>
-    </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </section>
+    </>
   );
 }
