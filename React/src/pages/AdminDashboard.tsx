@@ -10,6 +10,7 @@ import {
   MapPin,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -270,7 +271,7 @@ export default function AdminDashboard() {
         <div id="schemes"><SectionCard title="Schemes" icon={<Layers className="h-5 w-5 text-primary" />}>
           <div className="mb-4 flex justify-end"><Button asChild variant="outline"><Link to="/admin/schemes/new">Add detailed scheme <ArrowRight className="ml-2 h-4 w-4" /></Link></Button></div>
           <div className="divide-y rounded-lg border">
-            {schemes.map((scheme) => <div key={scheme.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{scheme.name}</p><p className="text-sm text-muted-foreground">{scheme.ministry.name} · ID {scheme.id}</p></div><StatusButton active={scheme.isActive} onClick={() => toggleScheme(scheme)} /></div>)}
+            {schemes.map((scheme) => <div key={scheme.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{scheme.name}</p><p className="text-sm text-muted-foreground">{scheme.ministry.name} · ID {scheme.id}</p></div><div className="flex gap-2"><Button asChild size="sm" variant="outline"><Link to={`/admin/schemes/${scheme.id}/edit`}><Pencil className="mr-1 h-4 w-4" /> Edit</Link></Button><StatusButton active={scheme.isActive} onClick={() => toggleScheme(scheme)} /></div></div>)}
             {schemes.length === 0 && <p className="p-5 text-sm text-muted-foreground">No active schemes found.</p>}
           </div>
         </SectionCard></div>

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Building2, CheckCircle2, MapPin, Users } from "lucide-react";
+import { ArrowLeft, Building2, CheckCircle2, CircleCheck, FileCheck2, MapPin, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import SavedSchemeButton from "@/components/SavedSchemeButton";
-import { fetchScheme, type SchemeRecord, type StructuredSchemeContent } from "@/lib/api";
+import { fetchScheme, type DocumentRequirement, type SchemeRecord, type StructuredSchemeContent } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
 const DETAIL_SECTIONS = [
@@ -155,6 +155,166 @@ function ApplicationProcess({ scheme }: { scheme: SchemeRecord }) {
   );
 }
 
+const DOCUMENT_PROGRESS_PREFIX = "govscheme-document-progress:";
+
+function documentItems(scheme: SchemeRecord): DocumentRequirement[] {
+  if (!("items" in scheme.documents) || scheme.documents.items.length === 0) return [];
+  if (typeof scheme.documents.items[0] !== "object") {
+    return (scheme.documents.items as string[]).map((name) => ({
+      name,
+      description: "Listed in this scheme record; confirm the current official guidelines before applying.",
+      requirement: /additional|if requested|current guidelines/i.test(name)
+        ? "conditional" as const
+        : "mandatory" as const,
+    }));
+  }
+  return scheme.documents.items as DocumentRequirement[];
+}
+
+function isUnverifiedDocumentMessage(name: string) {
+  return name.toLowerCase().includes("check the current official guidelines");
+}
+
+function isDocumentChecklist(scheme: SchemeRecord): scheme is SchemeRecord & { documents: Extract<SchemeRecord["documents"], { verified?: boolean }> } {
+  return typeof scheme.documents.items[0] === "object";
+}
+
+function DocumentsChecklist({ scheme }: { scheme: SchemeRecord }) {
+  const { t } = useI18n();
+  const items = documentItems(scheme);
+  const [collected, setCollected] = useState<Record<string, boolean>>({});
+  const [storageError, setStorageError] = useState(false);
+  const storageKey = `${DOCUMENT_PROGRESS_PREFIX}${scheme.id}`;
+  const hasVerifiedChecklist = isDocumentChecklist(scheme) && scheme.documents.verified === true;
+  const isFallback = items.length === 0 || items.some((item) => isUnverifiedDocumentMessage(item.name));
+  const mandatoryItems = items.filter((item) => item.requirement === "mandatory");
+  const collectedMandatory = mandatoryItems.filter((item) => collected[item.name]).length;
+  const percentage = mandatoryItems.length === 0
+    ? 0
+    : Math.round((collectedMandatory / mandatoryItems.length) * 100);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (!saved) {
+        setCollected({});
+        return;
+      }
+      const parsed: unknown = JSON.parse(saved);
+      setCollected(
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? Object.fromEntries(
+            Object.entries(parsed).filter(([, value]) => typeof value === "boolean"),
+          )
+          : {},
+      );
+      setStorageError(false);
+    } catch {
+      setCollected({});
+      setStorageError(true);
+    }
+  }, [storageKey]);
+
+  const toggleDocument = (name: string) => {
+    const next = { ...collected, [name]: !collected[name] };
+    setCollected(next);
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(next));
+      setStorageError(false);
+    } catch {
+      setStorageError(true);
+    }
+  };
+
+  if (isFallback) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <div className="flex items-start gap-3">
+          <FileCheck2 className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+          <div>
+            <h3 className="font-semibold text-slate-900">{t("Document checklist not available")}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              {t("The document requirements for this scheme or component have not been verified here. Please check the current official guidelines before applying.")}
+            </p>
+            {items.length > 0 && !isUnverifiedDocumentMessage(items[0].name) && (
+              <p className="mt-3 text-sm text-slate-700">{items[0].name}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-5">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-sm font-medium text-primary">{t("Document readiness")}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {collectedMandatory} {t("out of")} {mandatoryItems.length} {t("mandatory documents ready")}
+            </p>
+          </div>
+          <span className="text-2xl font-bold text-primary">{percentage}%</span>
+        </div>
+        <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-primary/10" aria-label={`${percentage}% complete`}>
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percentage}%` }} />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {percentage}% {t("complete")} · {t("Only mandatory documents count toward this progress.")}
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((item) => (
+          <label
+            key={item.name}
+            className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4 transition-colors hover:border-primary/40 has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50/40"
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(collected[item.name])}
+              onChange={() => toggleDocument(item.name)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-primary accent-primary"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-2 font-medium text-slate-900">
+                {item.name}
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  item.requirement === "mandatory"
+                    ? "bg-red-50 text-red-700"
+                    : item.requirement === "optional"
+                      ? "bg-slate-100 text-slate-600"
+                      : "bg-amber-50 text-amber-700"
+                }`}>
+                  {t(item.requirement)}
+                </span>
+              </span>
+              {item.description && <span className="mt-1 block text-sm leading-5 text-muted-foreground">{item.description}</span>}
+            </span>
+            {collected[item.name] && <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />}
+          </label>
+        ))}
+      </div>
+
+      {hasVerifiedChecklist && scheme.documents.sourceNote && (
+        <p className="text-xs leading-5 text-muted-foreground">{scheme.documents.sourceNote}</p>
+      )}
+      {storageError && (
+        <p role="alert" className="text-sm text-amber-700">
+          {t("Your document progress could not be saved in this browser.")}
+        </p>
+      )}
+      {mandatoryItems.length > 0 && percentage === 100 && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+          <CircleCheck className="h-5 w-5" />
+          {t("Great work — all mandatory documents are marked ready.")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SchemeDetails() {
   const { t, categoryName, locationName, ministryName, schemeName } = useI18n();
   const { id = "" } = useParams();
@@ -278,7 +438,7 @@ export default function SchemeDetails() {
                 <ApplicationProcess scheme={scheme} />
               </Section>
               <Section id="documents" title={t("Documents Required")}>
-                <FormattedContent content={scheme.documents} />
+                <DocumentsChecklist scheme={scheme} />
               </Section>
             </CardContent>
           </Card>

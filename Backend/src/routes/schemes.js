@@ -18,6 +18,22 @@ const structuredContentSchema = z.object({
   items: z.array(contentItemSchema).min(1).max(100)
 }).strict();
 
+const documentRequirementSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  description: z.string().trim().max(1000).optional(),
+  requirement: z.enum(["mandatory", "optional", "conditional"])
+}).strict();
+
+const documentsSchema = z.union([
+  structuredContentSchema,
+  z.object({
+    format: z.literal("checklist"),
+    items: z.array(documentRequirementSchema).min(1).max(100),
+    verified: z.boolean().optional(),
+    sourceNote: z.string().trim().max(500).optional()
+  }).strict()
+]);
+
 const applicationModeSchema = z.object({
   enabled: z.boolean(),
   subsections: z.array(z.object({
@@ -59,7 +75,7 @@ const createSchemeSchema = z.object({
   details: structuredContentSchema,
   benefits: structuredContentSchema,
   eligibilityInfo: structuredContentSchema,
-  documents: structuredContentSchema,
+  documents: documentsSchema,
   applicationProcess: z.object({
     online: applicationModeSchema,
     offline: applicationModeSchema
@@ -405,6 +421,124 @@ export function createSchemesRouter({ pool, jwtSecret }) {
 
     const [scheme] = await enrichSchemeRows(pool, rows);
     return res.json({ scheme });
+  });
+
+  router.patch("/schemes/:id", adminOnly, async (req, res) => {
+    const parsedId = schemeIdParamSchema.safeParse(req.params.id);
+    const parsed = createSchemeSchema.safeParse(req.body);
+    if (!parsedId.success) return res.status(400).json({ error: "Invalid scheme ID" });
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: "Invalid scheme data",
+        details: validationDetails(parsed.error.issues)
+      });
+    }
+
+    const input = parsed.data;
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const [existingRows] = await connection.execute(
+        "SELECT id FROM schemes WHERE id = ? LIMIT 1",
+        [parsedId.data]
+      );
+      if (existingRows.length === 0) {
+        throw new InvalidReferenceError("Scheme not found");
+      }
+      if (!(await assertActiveIds(connection, "master_ministry", [input.ministryId]))) {
+        throw new InvalidReferenceError("The selected ministry is unavailable");
+      }
+      if (!(await assertActiveIds(connection, "master_categories", input.categoryIds))) {
+        throw new InvalidReferenceError("One or more selected categories are unavailable");
+      }
+      if (!(await assertActiveIds(connection, "master_state", input.coverage.stateIds))) {
+        throw new InvalidReferenceError("One or more selected states are unavailable");
+      }
+      if (!(await assertActiveIds(connection, "master_union_territory", input.coverage.unionTerritoryIds))) {
+        throw new InvalidReferenceError("One or more selected union territories are unavailable");
+      }
+
+      const { genderIds, optionIds, numericDimensions } = await validateCriteria(
+        connection,
+        input.criteria,
+        input.numericRules
+      );
+
+      await connection.execute(
+        `UPDATE schemes
+         SET code = ?, name = ?, ministry_id = ?, coverage_type = ?, details = ?,
+             benefits = ?, eligibility = ?, application_process = ?, documents = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          input.code ?? null,
+          input.name,
+          input.ministryId,
+          input.coverage.allIndia ? "ALL_INDIA" : "SELECTED",
+          JSON.stringify(input.details),
+          JSON.stringify(input.benefits),
+          JSON.stringify(input.eligibilityInfo),
+          JSON.stringify(input.applicationProcess),
+          JSON.stringify(input.documents),
+          parsedId.data
+        ]
+      );
+
+      await connection.execute("DELETE FROM scheme_categories WHERE scheme_id = ?", [parsedId.data]);
+      await connection.execute("DELETE FROM scheme_states WHERE scheme_id = ?", [parsedId.data]);
+      await connection.execute("DELETE FROM scheme_union_territories WHERE scheme_id = ?", [parsedId.data]);
+      await connection.execute("DELETE FROM scheme_genders WHERE scheme_id = ?", [parsedId.data]);
+      await connection.execute("DELETE FROM scheme_criteria WHERE scheme_id = ?", [parsedId.data]);
+      await connection.execute("DELETE FROM scheme_numeric_rule WHERE scheme_id = ?", [parsedId.data]);
+
+      await insertIdMappings(connection, "scheme_categories", "category_id", parsedId.data, input.categoryIds);
+      await insertIdMappings(connection, "scheme_states", "state_id", parsedId.data, input.coverage.stateIds);
+      await insertIdMappings(
+        connection,
+        "scheme_union_territories",
+        "union_territory_id",
+        parsedId.data,
+        input.coverage.unionTerritoryIds
+      );
+      await insertIdMappings(connection, "scheme_genders", "gender_id", parsedId.data, genderIds);
+      await insertIdMappings(connection, "scheme_criteria", "criteria_option_id", parsedId.data, optionIds);
+
+      const numericEntries = Object.entries(input.numericRules);
+      if (numericEntries.length > 0) {
+        const values = numericEntries.map(() => "(?, ?, ?, ?)").join(", ");
+        const parameters = numericEntries.flatMap(([code, rule]) => [
+          parsedId.data,
+          numericDimensions.get(code),
+          rule.min,
+          rule.max
+        ]);
+        await connection.execute(
+          `INSERT INTO scheme_numeric_rule (scheme_id, dimension_id, min_value, max_value)
+           VALUES ${values}`,
+          parameters
+        );
+      }
+
+      await connection.commit();
+      return res.json({ scheme: { id: parsedId.data, name: input.name, code: input.code ?? null } });
+    } catch (error) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Could not roll back scheme update transaction", rollbackError);
+      }
+      if (error instanceof InvalidReferenceError) {
+        return res.status(error.message === "Scheme not found" ? 404 : 400).json({ error: error.message });
+      }
+      if (error.code === "ER_DUP_ENTRY") {
+        return res.status(409).json({ error: "A scheme with this code already exists" });
+      }
+      throw error;
+    } finally {
+      connection.release();
+    }
   });
 
   router.patch("/schemes/:id/status", adminOnly, async (req, res) => {

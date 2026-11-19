@@ -56,6 +56,19 @@ export type StructuredSchemeContent = {
   items: string[];
 };
 
+export type DocumentRequirement = {
+  name: string;
+  description?: string;
+  requirement: "mandatory" | "optional" | "conditional";
+};
+
+export type DocumentChecklist = {
+  format: "checklist";
+  items: DocumentRequirement[];
+  verified?: boolean;
+  sourceNote?: string;
+};
+
 export type CreateSchemeInput = {
   name: string;
   code?: string;
@@ -111,7 +124,7 @@ export type SchemeRecord = {
   benefits: StructuredSchemeContent;
   eligibilityInfo: StructuredSchemeContent;
   applicationProcess: CreateSchemeInput["applicationProcess"];
-  documents: StructuredSchemeContent;
+  documents: StructuredSchemeContent | DocumentChecklist;
   genders: { id: number; name: string }[];
   criteria: {
     id: number;
@@ -326,6 +339,16 @@ export async function createScheme(input: CreateSchemeInput): Promise<CreatedSch
   }
 
   return data.scheme;
+}
+
+export async function updateScheme(id: number, input: CreateSchemeInput): Promise<void> {
+  await adminRequest(`/schemes/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function updateSchemeStatus(id: number, isActive: boolean): Promise<void> {

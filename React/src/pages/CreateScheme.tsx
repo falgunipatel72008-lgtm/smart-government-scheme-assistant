@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Globe, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import {
   fetchLocations,
   fetchMinistries,
   createScheme,
+  fetchScheme,
+  updateScheme,
   ADMIN_TOKEN_KEY,
   type Category,
   type CreateSchemeInput,
@@ -179,9 +181,74 @@ function locationKey(location: Location) {
   return `${location.isUnionTerritory ? "ut" : "state"}:${location.id}`;
 }
 
+function schemeToDraft(scheme: Awaited<ReturnType<typeof fetchScheme>>): SchemeDraft {
+  const criteria = Object.fromEntries(
+    scheme.criteria.map((dimension) => [
+      dimension.code,
+      dimension.options.map((option) => String(option.id)),
+    ]),
+  );
+  criteria.GENDER = scheme.genders.map((gender) => String(gender.id));
+
+  const numericRules = Object.fromEntries(
+    Object.keys(NUMERIC_FIELD_DETAILS).map((code) => {
+      const rule = scheme.numericRules.find((item) => item.code === code);
+      return [code, {
+        min: rule?.min == null ? "" : String(rule.min),
+        max: rule?.max == null ? "" : String(rule.max),
+      }];
+    }),
+  );
+
+  return {
+    name: scheme.name,
+    code: scheme.code ?? "",
+    details: { ...scheme.details, items: scheme.details.items.length ? scheme.details.items : [""] },
+    benefits: { ...scheme.benefits, items: scheme.benefits.items.length ? scheme.benefits.items : [""] },
+    eligibilityInfo: { ...scheme.eligibilityInfo, items: scheme.eligibilityInfo.items.length ? scheme.eligibilityInfo.items : [""] },
+    documents: {
+      format: "checklist",
+      items: scheme.documents.items.length
+        ? scheme.documents.items.map((item) => typeof item === "string" ? item : item.name)
+        : [""],
+    },
+    applicationProcess: {
+      online: {
+        enabled: scheme.applicationProcess.online.enabled,
+        subsections: scheme.applicationProcess.online.subsections.map((subsection) => ({
+          id: createId(),
+          title: subsection.title,
+          format: subsection.format,
+          steps: subsection.steps.length ? subsection.steps : [""],
+        })),
+      },
+      offline: {
+        enabled: scheme.applicationProcess.offline.enabled,
+        subsections: scheme.applicationProcess.offline.subsections.map((subsection) => ({
+          id: createId(),
+          title: subsection.title,
+          format: subsection.format,
+          steps: subsection.steps.length ? subsection.steps : [""],
+        })),
+      },
+    },
+    ministryId: String(scheme.ministry.id),
+    categoryIds: scheme.categories.map((category) => String(category.id)),
+    allIndia: scheme.coverage.type === "ALL_INDIA",
+    locationKeys: [
+      ...scheme.coverage.states.map((location) => `state:${location.id}`),
+      ...scheme.coverage.unionTerritories.map((location) => `ut:${location.id}`),
+    ],
+    criteria,
+    numericRules,
+  };
+}
+
 export default function CreateScheme() {
   const { t, categoryName, ministryName, locationName } = useI18n();
   const navigate = useNavigate();
+  const { id: editId } = useParams();
+  const isEditing = Boolean(editId);
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [criteriaDimensions, setCriteriaDimensions] = useState<CriteriaDimension[]>([]);
@@ -211,12 +278,14 @@ export default function CreateScheme() {
       fetchLocations(controller.signal),
       fetchMinistries(controller.signal),
       fetchCriteriaOptions(controller.signal),
+      editId ? fetchScheme(editId, controller.signal) : Promise.resolve(null),
     ])
-      .then(([nextCategories, nextLocations, nextMinistries, nextCriteriaDimensions]) => {
+      .then(([nextCategories, nextLocations, nextMinistries, nextCriteriaDimensions, existingScheme]) => {
         setCategories(nextCategories.filter((item) => item.isActive));
         setLocations(nextLocations.filter((item) => item.isActive));
         setMinistries(nextMinistries.filter((item) => item.isActive));
         setCriteriaDimensions(nextCriteriaDimensions);
+        if (existingScheme) setDraft(schemeToDraft(existingScheme));
       })
       .catch((requestError: unknown) => {
         if (!controller.signal.aborted) {
@@ -228,7 +297,7 @@ export default function CreateScheme() {
       });
 
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [reloadKey, editId]);
 
   const states = useMemo(
     () => locations.filter((location) => !location.isUnionTerritory),
@@ -469,8 +538,13 @@ export default function CreateScheme() {
     setFormError(null);
     setSavedSchemeId(null);
     try {
-      const savedScheme = await createScheme(payload);
-      setSavedSchemeId(savedScheme.id);
+      if (isEditing && editId) {
+        await updateScheme(Number(editId), payload);
+        setSavedSchemeId(Number(editId));
+      } else {
+        const savedScheme = await createScheme(payload);
+        setSavedSchemeId(savedScheme.id);
+      }
       setShowPreview(false);
     } catch (requestError: unknown) {
       setFormError(requestError instanceof Error ? requestError.message : t("Unable to save the scheme."));
@@ -487,9 +561,11 @@ export default function CreateScheme() {
           <Badge variant="outline" className="mb-4 border-secondary text-secondary">
             {t("Admin console")}
           </Badge>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{t("Create a scheme")}</h1>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{isEditing ? t("Edit scheme") : t("Create a scheme")}</h1>
           <p className="mt-3 max-w-3xl text-slate-300">
-            {t("Add scheme information and eligibility criteria. This prototype saves the scheme to the backend.")}
+            {isEditing
+              ? t("Update scheme information, documents, and eligibility criteria.")
+              : t("Add scheme information and eligibility criteria. This prototype saves the scheme to the backend.")}
           </p>
           </div>
           <div className="flex gap-2">
@@ -533,7 +609,9 @@ export default function CreateScheme() {
         )}
         {savedSchemeId !== null && (
           <div role="status" className="rounded-xl border border-green-200 bg-green-50 p-5 text-green-800">
-            {t("Scheme created successfully (ID: {id}).", { id: savedSchemeId })}
+            {isEditing
+              ? t("Scheme updated successfully (ID: {id}).", { id: savedSchemeId })
+              : t("Scheme created successfully (ID: {id}).", { id: savedSchemeId })}
           </div>
         )}
 
@@ -746,7 +824,11 @@ export default function CreateScheme() {
               {t("Preview configuration")}
             </Button>
             <Button type="submit" className="bg-primary" disabled={loading || saving || Boolean(error)}>
-              {saving ? t("Saving scheme…") : t("Create scheme")}
+              {saving
+                ? t("Saving scheme…")
+                : isEditing
+                  ? t("Save changes")
+                  : t("Create scheme")}
             </Button>
           </div>
         </form>
