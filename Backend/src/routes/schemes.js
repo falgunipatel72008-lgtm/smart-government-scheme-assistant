@@ -10,7 +10,7 @@ const schemeIdParamSchema = z.string()
   .transform(Number);
 const uniqueIds = (ids) => new Set(ids).size === ids.length;
 const idListSchema = z.array(idSchema).max(100).refine(uniqueIds, "IDs must be unique");
-const contentFormatSchema = z.enum(["bullets", "numbered", "steps", "checklist", "paragraphs"]);
+const contentFormatSchema = z.enum(["bullets", "numbered", "steps", "paragraphs", "checklist", "list"]);
 const contentItemSchema = z.string().trim().min(1).max(5000);
 
 const structuredContentSchema = z.object({
@@ -414,6 +414,26 @@ export function createSchemesRouter({ pool, jwtSecret }) {
        FROM schemes s
        JOIN master_ministry m ON m.id = s.ministry_id
        WHERE s.id = ? AND s.is_active = TRUE
+       LIMIT 1`,
+      [parsedId.data]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Scheme not found" });
+
+    const [scheme] = await enrichSchemeRows(pool, rows);
+    return res.json({ scheme });
+  });
+
+  router.get("/admin/schemes/:id", adminOnly, async (req, res) => {
+    const parsedId = schemeIdParamSchema.safeParse(req.params.id);
+    if (!parsedId.success) return res.status(400).json({ error: "Invalid scheme ID" });
+
+    const [rows] = await pool.execute(
+      `SELECT s.id, s.code, s.name, s.ministry_id, m.ministry AS ministry_name,
+              s.coverage_type, s.details, s.benefits, s.eligibility,
+              s.application_process, s.documents, s.is_active, s.created_at, s.updated_at
+       FROM schemes s
+       JOIN master_ministry m ON m.id = s.ministry_id
+       WHERE s.id = ?
        LIMIT 1`,
       [parsedId.data]
     );

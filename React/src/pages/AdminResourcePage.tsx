@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Check, Database, Globe, Layers, LogOut, MapPin, PanelLeftClose, PanelLeftOpen, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
+import { Check, Database, Globe, Layers, LogOut, MapPin, PanelLeftClose, PanelLeftOpen, Pencil, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,7 @@ export default function AdminResourcePage({ resource }: { resource: AdminResourc
   const [locations, setLocations] = useState<Location[]>([]);
   const [schemes, setSchemes] = useState<SchemeRecord[]>([]);
   const [draft, setDraft] = useState({ first: "", second: "" });
+  const [editing, setEditing] = useState<{ id: number; kind: "category" | "ministry" | "gender" | "location"; first: string; second: string; isActive: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -102,6 +103,7 @@ export default function AdminResourcePage({ resource }: { resource: AdminResourc
 
   useEffect(() => {
     setDraft({ first: "", second: "" });
+    setEditing(null);
     load();
   }, [resource]);
 
@@ -128,13 +130,52 @@ export default function AdminResourcePage({ resource }: { resource: AdminResourc
     if (window.confirm(`Delete this ${label}? This may fail if it is used by a scheme.`)) void action(operation);
   };
 
+  const saveEdit = () => {
+    if (!editing) return;
+    if (!editing.first.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    void action(async () => {
+      if (editing.kind === "category") {
+        await updateCategory(editing.id, {
+          name: editing.first.trim(),
+          description: editing.second.trim(),
+        });
+      } else if (editing.kind === "ministry") {
+        await updateMinistry(editing.id, {
+          ministry: editing.first.trim(),
+          description: editing.second.trim(),
+        });
+      } else if (editing.kind === "gender") {
+        await updateGender(editing.id, { gender: editing.first.trim() });
+      } else {
+        await updateLocation(
+          editing.id,
+          editing.second === "ut" ? "union-territory" : "state",
+          editing.first.trim(),
+          editing.isActive,
+        );
+      }
+      setEditing(null);
+    });
+  };
+
   const renderMasterRows = () => {
-    if (resource === "categories") return categories.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 border-b p-3"><span>{item.name}</span><div className="flex gap-2"><StatusButton active={item.isActive} onClick={() => void action(() => updateCategory(item.id, { isActive: !item.isActive }).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove("category", () => deleteCategory(item.id))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>);
-    if (resource === "ministries") return ministries.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 border-b p-3"><span>{item.ministry}</span><div className="flex gap-2"><StatusButton active={item.isActive} onClick={() => void action(() => updateMinistry(item.id, { isActive: !item.isActive }).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove("ministry", () => deleteMinistry(item.id))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>);
-    if (resource === "genders") return genders.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 border-b p-3"><span>{item.gender}</span><div className="flex gap-2"><StatusButton active={item.isActive} onClick={() => void action(() => updateGender(item.id, { isActive: !item.isActive }).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove("gender", () => deleteGender(item.id))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>);
+    if (resource === "categories") return categories.map((item) => editing?.kind === "category" && editing.id === item.id
+      ? <div key={item.id} className="grid gap-3 border-b p-3 md:grid-cols-[1fr_1.5fr_auto]"><Input value={editing.first} onChange={(event) => setEditing({ ...editing, first: event.target.value })} placeholder="Category name" /><Input value={editing.second} onChange={(event) => setEditing({ ...editing, second: event.target.value })} placeholder="Description" /><div className="flex gap-2"><Button size="sm" onClick={saveEdit}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button></div></div>
+      : <div key={item.id} className="flex items-center justify-between gap-3 border-b p-3"><div><span className="font-medium">{item.name}</span>{item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}</div><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setEditing({ id: item.id, kind: "category", first: item.name, second: item.description, isActive: item.isActive })}><Pencil className="mr-1 h-4 w-4" /> Edit</Button><StatusButton active={item.isActive} onClick={() => void action(() => updateCategory(item.id, { isActive: !item.isActive }).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove("category", () => deleteCategory(item.id))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>);
+    if (resource === "ministries") return ministries.map((item) => editing?.kind === "ministry" && editing.id === item.id
+      ? <div key={item.id} className="grid gap-3 border-b p-3 md:grid-cols-[1fr_1.5fr_auto]"><Input value={editing.first} onChange={(event) => setEditing({ ...editing, first: event.target.value })} placeholder="Ministry name" /><Input value={editing.second} onChange={(event) => setEditing({ ...editing, second: event.target.value })} placeholder="Description" /><div className="flex gap-2"><Button size="sm" onClick={saveEdit}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button></div></div>
+      : <div key={item.id} className="flex items-center justify-between gap-3 border-b p-3"><div><span className="font-medium">{item.ministry}</span>{item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}</div><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setEditing({ id: item.id, kind: "ministry", first: item.ministry, second: item.description, isActive: item.isActive })}><Pencil className="mr-1 h-4 w-4" /> Edit</Button><StatusButton active={item.isActive} onClick={() => void action(() => updateMinistry(item.id, { isActive: !item.isActive }).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove("ministry", () => deleteMinistry(item.id))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>);
+    if (resource === "genders") return genders.map((item) => editing?.kind === "gender" && editing.id === item.id
+      ? <div key={item.id} className="flex items-center gap-3 border-b p-3"><Input value={editing.first} onChange={(event) => setEditing({ ...editing, first: event.target.value })} placeholder="Gender" /><div className="ml-auto flex gap-2"><Button size="sm" onClick={saveEdit}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button></div></div>
+      : <div key={item.id} className="flex items-center justify-between gap-3 border-b p-3"><span className="font-medium">{item.gender}</span><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setEditing({ id: item.id, kind: "gender", first: item.gender, second: "", isActive: item.isActive })}><Pencil className="mr-1 h-4 w-4" /> Edit</Button><StatusButton active={item.isActive} onClick={() => void action(() => updateGender(item.id, { isActive: !item.isActive }).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove("gender", () => deleteGender(item.id))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>);
     return locations.map((item) => {
       const kind = item.isUnionTerritory ? "union-territory" : "state";
-      return <div key={`${kind}-${item.id}`} className="flex items-center justify-between gap-3 border-b p-3"><span>{item.name}</span><div className="flex gap-2"><StatusButton active={item.isActive} onClick={() => void action(() => updateLocation(item.id, kind, item.name, !item.isActive).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove(kind, () => deleteLocation(item.id, kind))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>;
+      return editing?.kind === "location" && editing.id === item.id
+        ? <div key={`${kind}-${item.id}`} className="grid gap-3 border-b p-3 md:grid-cols-[1fr_220px_auto]"><Input value={editing.first} onChange={(event) => setEditing({ ...editing, first: event.target.value })} placeholder="State or union territory" /><select value={editing.second} onChange={(event) => setEditing({ ...editing, second: event.target.value })} className="h-10 rounded-md border px-3 text-sm"><option value="state">State</option><option value="ut">Union territory</option></select><div className="flex gap-2"><Button size="sm" onClick={saveEdit}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button></div></div>
+        : <div key={`${kind}-${item.id}`} className="flex items-center justify-between gap-3 border-b p-3"><span className="font-medium">{item.name}</span><div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setEditing({ id: item.id, kind: "location", first: item.name, second: item.isUnionTerritory ? "ut" : "state", isActive: item.isActive })}><Pencil className="mr-1 h-4 w-4" /> Edit</Button><StatusButton active={item.isActive} onClick={() => void action(() => updateLocation(item.id, kind, item.name, !item.isActive).then(() => undefined))} /><Button variant="ghost" size="icon" onClick={() => remove(kind, () => deleteLocation(item.id, kind))}><Trash2 className="h-4 w-4 text-red-600" /></Button></div></div>;
     });
   };
 
@@ -153,7 +194,7 @@ export default function AdminResourcePage({ resource }: { resource: AdminResourc
       </div>
     </section>
     <div className="flex min-h-[calc(100vh-11rem)]"><ResourceNav /><main className="min-w-0 flex-1 p-6 lg:p-10"><div className="mx-auto max-w-5xl space-y-6">{error && <p role="alert" className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-    {resource === "schemes" ? <ResourceCard title="Schemes" icon={<Layers className="h-5 w-5 text-primary" />}><div className="mb-4 flex justify-end"><Button asChild><Link to="/admin/schemes/new"><Plus className="mr-2 h-4 w-4" /> Add scheme</Link></Button></div><div className="divide-y rounded border">{schemes.map((item) => <div key={item.id} className="flex items-center justify-between gap-4 p-4"><div><p className="font-semibold">{item.name}</p><p className="text-sm text-muted-foreground">{item.ministry.name}</p></div><StatusButton active={item.isActive} onClick={() => void action(() => updateSchemeStatus(item.id, !item.isActive))} /></div>)}</div></ResourceCard>
+    {resource === "schemes" ? <ResourceCard title="Schemes" icon={<Layers className="h-5 w-5 text-primary" />}><div className="mb-4 flex justify-end"><Button asChild><Link to="/admin/schemes/new"><Plus className="mr-2 h-4 w-4" /> Add scheme</Link></Button></div><div className="divide-y rounded border">{schemes.map((item) => <div key={item.id} className="flex items-center justify-between gap-4 p-4"><div><p className="font-semibold">{item.name}</p><p className="text-sm text-muted-foreground">{item.ministry.name}</p></div><div className="flex items-center gap-2"><Button asChild size="sm" variant="outline"><Link to={`/admin/schemes/${item.id}/edit`}><Pencil className="mr-1 h-4 w-4" /> Edit</Link></Button><StatusButton active={item.isActive} onClick={() => void action(() => updateSchemeStatus(item.id, !item.isActive))} /></div></div>)}</div></ResourceCard>
       : <ResourceCard title={title} icon={resource === "categories" ? <Database className="h-5 w-5 text-primary" /> : resource === "ministries" ? <ShieldCheck className="h-5 w-5 text-primary" /> : resource === "genders" ? <Users className="h-5 w-5 text-primary" /> : <MapPin className="h-5 w-5 text-primary" />}><form onSubmit={submit} className="mb-5 grid gap-3 md:grid-cols-[1fr_1.5fr_auto]"><Label className="sr-only" htmlFor="resource-name">Name</Label><Input id="resource-name" value={draft.first} onChange={(event) => setDraft({ ...draft, first: event.target.value })} placeholder={resource === "categories" ? "Category name" : resource === "ministries" ? "Ministry name" : resource === "genders" ? "Gender" : "State or union territory"} required />{resource === "categories" || resource === "ministries" ? <Input value={draft.second} onChange={(event) => setDraft({ ...draft, second: event.target.value })} placeholder="Description" required={resource === "categories"} /> : resource === "locations" ? <select value={draft.second} onChange={(event) => setDraft({ ...draft, second: event.target.value })} className="h-10 rounded-md border px-3 text-sm"><option value="state">State</option><option value="ut">Union territory</option></select> : <span /> }<Button><Plus className="mr-1 h-4 w-4" /> Add</Button></form><div className="rounded border">{renderMasterRows()}</div></ResourceCard>}
   </div></main></div></div>;
 }

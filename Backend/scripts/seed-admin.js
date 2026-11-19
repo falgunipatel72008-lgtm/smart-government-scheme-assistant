@@ -35,7 +35,7 @@ const educationSchemes = [
       ]
     },
     documents: {
-      format: "checklist",
+      format: "list",
       items: [
         "Class XII marksheet and board examination details.",
         "Proof of admission and current enrolment in a regular course.",
@@ -92,7 +92,7 @@ const educationSchemes = [
       ]
     },
     documents: {
-      format: "checklist",
+      format: "list",
       items: [
         "Class VII and Class VIII marksheets or school records.",
         "Selection examination result or certificate issued by the state or union territory.",
@@ -149,7 +149,7 @@ const educationSchemes = [
       ]
     },
     documents: {
-      format: "checklist",
+      format: "list",
       items: [
         "Proof of admission to the AICTE-approved course and institution.",
         "Qualifying examination marksheet and applicable lateral-entry records.",
@@ -206,7 +206,7 @@ const educationSchemes = [
       ]
     },
     documents: {
-      format: "checklist",
+      format: "list",
       items: [
         "Disability certificate showing the required disability percentage, or the certificate accepted under current guidelines.",
         "Proof of admission to the AICTE-approved course and institution.",
@@ -263,7 +263,7 @@ const educationSchemes = [
       ]
     },
     documents: {
-      format: "checklist",
+      format: "list",
       items: [
         "Proof of admission or offer of admission from the eligible higher-education institution.",
         "Identity and address documents accepted by the portal and participating lender.",
@@ -434,8 +434,16 @@ async function seedCatalogSchemes(connection) {
         items: ["Eligibility depends on the scheme component and current official guidelines; confirm the requirements before applying."]
       };
       const documents = {
-        format: "checklist",
-        items: ["Check the current official guidelines for the documents required for the selected scheme component."]
+        format: "list",
+        items: [
+          "Aadhaar card or other valid government-issued photo identity proof.",
+          "Current address proof.",
+          "Passport-size photograph(s), if requested.",
+          "Bank account or passbook details for benefit transfer.",
+          "Income, caste, disability, or category certificate if applicable.",
+          "Completed application form and scheme-specific declaration.",
+          "Additional documents listed in the current official scheme guidelines."
+        ]
       };
       const applicationProcess = {
         online: {

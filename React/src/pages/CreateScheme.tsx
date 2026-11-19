@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Globe, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ArrowLeft, Globe, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import {
   fetchLocations,
   fetchMinistries,
   createScheme,
-  fetchScheme,
+  fetchSchemeForAdmin,
   updateScheme,
   ADMIN_TOKEN_KEY,
   type Category,
@@ -20,6 +20,7 @@ import {
   type CriteriaDimension,
   type Location,
   type Ministry,
+  type SchemeRecord,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
@@ -33,7 +34,7 @@ type NumericRule = {
   max: string;
 };
 
-type ContentFormat = "bullets" | "numbered" | "steps" | "checklist" | "paragraphs";
+type ContentFormat = "bullets" | "numbered" | "steps" | "paragraphs" | "checklist" | "list";
 
 type StructuredContent = {
   format: ContentFormat;
@@ -75,7 +76,6 @@ const CONTENT_FORMATS: { value: ContentFormat; label: string }[] = [
   { value: "bullets", label: "Bullet points" },
   { value: "numbered", label: "Numbered list" },
   { value: "steps", label: "Steps" },
-  { value: "checklist", label: "Checklist" },
   { value: "paragraphs", label: "Paragraphs" },
 ];
 
@@ -109,7 +109,7 @@ function createInitialDraft(): SchemeDraft {
     details: { format: "paragraphs", items: [""] },
     benefits: { format: "bullets", items: [""] },
     eligibilityInfo: { format: "bullets", items: [""] },
-    documents: { format: "checklist", items: [""] },
+    documents: { format: "list", items: [""] },
     applicationProcess: {
       online: { enabled: true, subsections: [createApplicationSubsection()] },
       offline: { enabled: false, subsections: [] },
@@ -181,7 +181,11 @@ function locationKey(location: Location) {
   return `${location.isUnionTerritory ? "ut" : "state"}:${location.id}`;
 }
 
-function schemeToDraft(scheme: Awaited<ReturnType<typeof fetchScheme>>): SchemeDraft {
+function schemeToDraft(scheme: SchemeRecord): SchemeDraft {
+  const normalizeContent = (content: StructuredContent): StructuredContent => ({
+    ...content,
+    format: content.format === "checklist" ? "bullets" : content.format,
+  });
   const criteria = Object.fromEntries(
     scheme.criteria.map((dimension) => [
       dimension.code,
@@ -203,11 +207,11 @@ function schemeToDraft(scheme: Awaited<ReturnType<typeof fetchScheme>>): SchemeD
   return {
     name: scheme.name,
     code: scheme.code ?? "",
-    details: { ...scheme.details, items: scheme.details.items.length ? scheme.details.items : [""] },
-    benefits: { ...scheme.benefits, items: scheme.benefits.items.length ? scheme.benefits.items : [""] },
-    eligibilityInfo: { ...scheme.eligibilityInfo, items: scheme.eligibilityInfo.items.length ? scheme.eligibilityInfo.items : [""] },
+    details: { ...normalizeContent(scheme.details), items: scheme.details.items.length ? scheme.details.items : [""] },
+    benefits: { ...normalizeContent(scheme.benefits), items: scheme.benefits.items.length ? scheme.benefits.items : [""] },
+    eligibilityInfo: { ...normalizeContent(scheme.eligibilityInfo), items: scheme.eligibilityInfo.items.length ? scheme.eligibilityInfo.items : [""] },
     documents: {
-      format: "checklist",
+      format: "list",
       items: scheme.documents.items.length
         ? scheme.documents.items.map((item) => typeof item === "string" ? item : item.name)
         : [""],
@@ -262,6 +266,7 @@ export default function CreateScheme() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedSchemeId, setSavedSchemeId] = useState<number | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const signOut = () => {
     window.localStorage.removeItem(ADMIN_TOKEN_KEY);
@@ -278,7 +283,7 @@ export default function CreateScheme() {
       fetchLocations(controller.signal),
       fetchMinistries(controller.signal),
       fetchCriteriaOptions(controller.signal),
-      editId ? fetchScheme(editId, controller.signal) : Promise.resolve(null),
+      editId ? fetchSchemeForAdmin(editId) : Promise.resolve(null),
     ])
       .then(([nextCategories, nextLocations, nextMinistries, nextCriteriaDimensions, existingScheme]) => {
         setCategories(nextCategories.filter((item) => item.isActive));
@@ -433,6 +438,10 @@ export default function CreateScheme() {
     if (!validateMetadata()) return;
     setFormError(null);
     setShowPreview(true);
+    window.requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      previewRef.current?.focus();
+    });
   };
 
   const onCreate = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -514,7 +523,7 @@ export default function CreateScheme() {
         ...draft.eligibilityInfo,
         items: draft.eligibilityInfo.items.map((item) => item.trim()).filter(Boolean),
       },
-      documents: { ...draft.documents, items: draft.documents.items.map((item) => item.trim()).filter(Boolean) },
+      documents: { format: "list", items: draft.documents.items.map((item) => item.trim()).filter(Boolean) },
       applicationProcess: {
         online: applicationMode("online"),
         offline: applicationMode("offline"),
@@ -540,7 +549,8 @@ export default function CreateScheme() {
     try {
       if (isEditing && editId) {
         await updateScheme(Number(editId), payload);
-        setSavedSchemeId(Number(editId));
+        navigate("/admin/schemes", { replace: true });
+        return;
       } else {
         const savedScheme = await createScheme(payload);
         setSavedSchemeId(savedScheme.id);
@@ -674,6 +684,7 @@ export default function CreateScheme() {
             itemLabel={t("Document")}
             content={draft.documents}
             onChange={(content) => updateContent("documents", content)}
+            lockFormat="list"
           />
 
           <Card className="bg-white">
@@ -819,7 +830,14 @@ export default function CreateScheme() {
 
           <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
             {formError && <p role="alert" className="self-center text-sm text-red-700">{formError}</p>}
-            <Button type="button" variant="outline" onClick={resetDraft}>{t("Clear form")}</Button>
+            {isEditing ? (
+              <Button type="button" variant="outline" onClick={() => navigate("/admin/schemes")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {t("Back")}
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={resetDraft}>{t("Clear form")}</Button>
+            )}
             <Button type="button" variant="outline" onClick={onPreview} disabled={loading || Boolean(error)}>
               {t("Preview configuration")}
             </Button>
@@ -834,10 +852,21 @@ export default function CreateScheme() {
         </form>
 
         {showPreview && (
-          <Card className="border-primary/20 bg-white">
+          <Card ref={previewRef} tabIndex={-1} className="scroll-mt-6 border-primary/20 bg-white">
             <CardHeader>
-              <CardTitle>{t("Configuration preview")}</CardTitle>
-              <p className="text-sm text-muted-foreground">{t("Review the configuration before creating the scheme.")}</p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle>{t("Configuration preview")}</CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {isEditing
+                      ? t("Review the updated scheme information before saving.")
+                      : t("Review the configuration before creating the scheme.")}
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview(false)}>
+                  {t("Close preview")}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="grid gap-6 text-sm md:grid-cols-2">
               <div className="space-y-3">
@@ -899,12 +928,14 @@ function StructuredContentEditor({
   itemLabel,
   content,
   onChange,
+  lockFormat,
 }: {
   title: string;
   description: string;
   itemLabel: string;
   content: StructuredContent;
   onChange: (content: StructuredContent) => void;
+  lockFormat?: ContentFormat;
 }) {
   const { t } = useI18n();
   return (
@@ -914,11 +945,13 @@ function StructuredContentEditor({
         <p className="text-sm text-muted-foreground">{t(description)}</p>
       </CardHeader>
       <CardContent className="space-y-5">
-        <ContentFormatSelect
-          id={`format-${title.toLowerCase().replaceAll(" ", "-")}`}
-          value={content.format}
-          onChange={(format) => onChange({ ...content, format })}
-        />
+        {!lockFormat && (
+          <ContentFormatSelect
+            id={`format-${title.toLowerCase().replaceAll(" ", "-")}`}
+            value={content.format}
+            onChange={(format) => onChange({ ...content, format })}
+          />
+        )}
         <EditableItems
           label={itemLabel}
           items={content.items}
@@ -1196,19 +1229,6 @@ function FormattedContent({ format, items }: { format: ContentFormat; items: str
       <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm">
         {visibleItems.map((item, index) => <li key={index}>{item}</li>)}
       </ol>
-    );
-  }
-
-  if (format === "checklist") {
-    return (
-      <ul className="mt-2 space-y-2 text-sm">
-        {visibleItems.map((item, index) => (
-          <li key={index} className="flex gap-2">
-            <span aria-hidden="true" className="font-bold text-emerald-700">✓</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
     );
   }
 

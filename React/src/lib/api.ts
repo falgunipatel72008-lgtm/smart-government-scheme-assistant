@@ -49,7 +49,7 @@ export type CriteriaDimension = {
   options: CriteriaOption[];
 };
 
-export type SchemeContentFormat = "bullets" | "numbered" | "steps" | "checklist" | "paragraphs";
+export type SchemeContentFormat = "bullets" | "numbered" | "steps" | "paragraphs" | "checklist" | "list";
 
 export type StructuredSchemeContent = {
   format: SchemeContentFormat;
@@ -59,7 +59,7 @@ export type StructuredSchemeContent = {
 export type DocumentRequirement = {
   name: string;
   description?: string;
-  requirement: "mandatory" | "optional" | "conditional";
+  requirement: "mandatory" | "optional" | "conditional" | "unspecified";
 };
 
 export type DocumentChecklist = {
@@ -372,6 +372,11 @@ export async function fetchSchemes(
 
 export async function fetchScheme(id: string, signal?: AbortSignal): Promise<SchemeRecord> {
   const data = await get<{ scheme: SchemeRecord }>(`/schemes/${encodeURIComponent(id)}`, signal);
+  return data.scheme;
+}
+
+export async function fetchSchemeForAdmin(id: string): Promise<SchemeRecord> {
+  const data = await adminRequest<{ scheme: SchemeRecord }>(`/admin/schemes/${encodeURIComponent(id)}`);
   return data.scheme;
 }
 

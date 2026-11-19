@@ -49,6 +49,7 @@ const AppShell = () => {
             <Route path="/create-scheme" element={<AdminRoute><CreateScheme /></AdminRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/schemes/new" element={<AdminRoute><CreateScheme /></AdminRoute>} />
+            <Route path="/admin/schemes/:id/edit" element={<AdminRoute><CreateScheme /></AdminRoute>} />
             <Route path="/admin/schemes" element={<AdminRoute><AdminResourcePage resource="schemes" /></AdminRoute>} />
             <Route path="/admin/categories" element={<AdminRoute><AdminResourcePage resource="categories" /></AdminRoute>} />
             <Route path="/admin/ministries" element={<AdminRoute><AdminResourcePage resource="ministries" /></AdminRoute>} />

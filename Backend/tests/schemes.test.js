@@ -21,7 +21,7 @@ function createSchemeBody(overrides = {}) {
     details: { format: "paragraphs", items: ["Support for tailoring businesses."] },
     benefits: { format: "bullets", items: ["Financial assistance."] },
     eligibilityInfo: { format: "numbered", items: ["Applicants must be residents."] },
-    documents: { format: "checklist", items: ["Identity proof."] },
+    documents: { format: "list", items: ["Identity proof."] },
     applicationProcess: {
       online: {
         enabled: true,
@@ -114,6 +114,44 @@ test("creates a scheme and its criteria mappings in one transaction", async () =
   assert.ok(database.statements.some(({ sql }) => sql.includes("INSERT INTO scheme_numeric_rule")));
 });
 
+test("updates a scheme and replaces its mappings in one transaction", async () => {
+  const database = createDatabasePool();
+  const connection = {
+    beginTransaction: async () => database.transactions.push("begin"),
+    commit: async () => database.transactions.push("commit"),
+    rollback: async () => database.transactions.push("rollback"),
+    release: () => database.transactions.push("release"),
+    execute: async (sql, params = []) => {
+      database.statements.push({ sql, params });
+      if (sql.includes("SELECT id FROM schemes WHERE id = ?")) return [[{ id: 42 }]];
+      if (sql.includes("FROM master_ministry")) return [[{ id: params[0] }]];
+      if (sql.includes("FROM master_categories")) return [[{ id: params[0] }]];
+      if (sql.includes("FROM master_state")) return [[{ id: params[0] }]];
+      if (sql.includes("FROM master_union_territory")) return [[]];
+      if (sql.includes("FROM criteria_dimension WHERE code = 'GENDER'")) return [[{ id: 1 }]];
+      if (sql.includes("FROM master_gender")) return [[{ id: params[0] }]];
+      if (sql.includes("FROM criteria_option")) return [[{ id: 11, code: "SOCIAL_CATEGORY" }]];
+      if (sql.includes("FROM criteria_dimension") && sql.includes("input_type = 'NUMERIC'")) return [[{ id: 4, code: "AGE" }]];
+      return [{ affectedRows: 1 }];
+    }
+  };
+  database.pool.getConnection = async () => connection;
+  const app = createApp({ pool: database.pool, jwtSecret });
+
+  const response = await request(app)
+    .patch("/api/v1/schemes/42")
+    .set("Authorization", `Bearer ${adminToken}`)
+    .send(createSchemeBody({ name: "Updated Tailoring Assistance" }));
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.scheme.id, 42);
+  assert.equal(response.body.scheme.name, "Updated Tailoring Assistance");
+  assert.deepEqual(database.transactions, ["begin", "commit", "release"]);
+  assert.ok(database.statements.some(({ sql }) => sql.includes("UPDATE schemes")));
+  assert.ok(database.statements.some(({ sql }) => sql.includes("DELETE FROM scheme_categories")));
+  assert.ok(database.statements.some(({ sql }) => sql.includes("INSERT INTO scheme_genders")));
+});
+
 test("rejects numeric bounds with a minimum above the maximum before opening a transaction", async () => {
   const database = createDatabasePool();
   const app = createApp({ pool: database.pool, jwtSecret });
@@ -179,7 +217,7 @@ test("lists saved schemes with related data, filters, and pagination", async () 
       online: { enabled: true, subsections: [] },
       offline: { enabled: false, subsections: [] }
     }),
-    documents: JSON.stringify({ format: "checklist", items: ["Identity proof."] }),
+    documents: JSON.stringify({ format: "list", items: ["Identity proof."] }),
     is_active: 1,
     created_at: "2026-03-19T00:00:00.000Z",
     updated_at: "2026-03-19T00:00:00.000Z"
@@ -291,7 +329,7 @@ test("loads a scheme detail record and its related eligibility data", async () =
       online: { enabled: true, subsections: [] },
       offline: { enabled: false, subsections: [] }
     }),
-    documents: JSON.stringify({ format: "checklist", items: ["Identity proof."] }),
+    documents: JSON.stringify({ format: "list", items: ["Identity proof."] }),
     is_active: 1,
     created_at: "2026-03-19T00:00:00.000Z",
     updated_at: "2026-03-19T00:00:00.000Z"
