@@ -49,7 +49,7 @@ function coverageLabel(
 }
 
 export default function Schemes() {
-  const { t, categoryName, ministryName, locationName, schemeName } = useI18n();
+  const { t, categoryName, ministryName, locationName, schemeName, schemeText } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
   const [ministries, setMinistries] = useState<Ministry[]>([]);
@@ -322,7 +322,7 @@ export default function Schemes() {
               >
                 <option value="">{t("All genders")}</option>
                 {activeGenders.map((gender) => (
-                  <option key={gender.id} value={gender.id}>{gender.gender}</option>
+                  <option key={gender.id} value={gender.id}>{schemeText(gender.gender)}</option>
                 ))}
               </select>
               {(hasFilters || submittedQuery) && (
@@ -367,7 +367,7 @@ export default function Schemes() {
                     </div>
                     {scheme.code && <Badge variant="outline">{scheme.code}</Badge>}
                   </div>
-                  <h2 className="text-xl font-semibold tracking-tight">{schemeName(scheme.code, scheme.name)}</h2>
+                  <h2 className="text-xl font-semibold tracking-tight">{schemeText(schemeName(scheme.code, scheme.name))}</h2>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4 space-y-2 text-sm text-muted-foreground">
@@ -381,12 +381,12 @@ export default function Schemes() {
                     </p>
                   </div>
                   {scheme.details.items[0] && (
-                    <p className="mb-4 text-sm leading-relaxed text-slate-600">{scheme.details.items[0]}</p>
+                    <p className="mb-4 text-sm leading-relaxed text-slate-600">{schemeText(scheme.details.items[0])}</p>
                   )}
                   {scheme.benefits.items.length > 0 && (
                     <div className="border-y border-slate-100 py-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("Benefits")}</p>
-                      <p className="mt-1 text-sm font-semibold text-primary">{scheme.benefits.items[0]}</p>
+                      <p className="mt-1 text-sm font-semibold text-primary">{schemeText(scheme.benefits.items[0])}</p>
                     </div>
                   )}
                   <Button asChild variant="outline" className="group mt-5 w-full border-primary text-primary hover:bg-primary hover:text-white">

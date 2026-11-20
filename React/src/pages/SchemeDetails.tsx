@@ -17,14 +17,14 @@ const DETAIL_SECTIONS = [
 ] as const;
 
 function FormattedContent({ content }: { content: StructuredSchemeContent }) {
-  const { t } = useI18n();
+  const { t, schemeText } = useI18n();
   if (content.items.length === 0) {
     return <p className="text-sm text-muted-foreground">{t("No information has been added.")}</p>;
   }
   if (content.format === "paragraphs") {
     return (
       <div className="space-y-4 text-sm leading-7 text-slate-700">
-        {content.items.map((item, index) => <p key={`${index}-${item}`}>{item}</p>)}
+        {content.items.map((item, index) => <p key={`${index}-${item}`}>{schemeText(item)}</p>)}
       </div>
     );
   }
@@ -36,7 +36,7 @@ function FormattedContent({ content }: { content: StructuredSchemeContent }) {
   return (
     <List className={`space-y-3 pl-6 text-sm leading-6 text-slate-700 ${style}`}>
       {content.items.map((item, index) => (
-        <li key={`${index}-${item}`}>{item}</li>
+        <li key={`${index}-${item}`}>{schemeText(item)}</li>
       ))}
     </List>
   );
@@ -72,7 +72,7 @@ function numericValue(code: string, value: number | null, t: (text: string) => s
 }
 
 function SchemeEligibility({ scheme }: { scheme: SchemeRecord }) {
-  const { t } = useI18n();
+  const { t, schemeText } = useI18n();
   const hasCriteria = scheme.genders.length > 0
     || scheme.criteria.length > 0
     || scheme.numericRules.length > 0;
@@ -87,20 +87,20 @@ function SchemeEligibility({ scheme }: { scheme: SchemeRecord }) {
             {scheme.genders.length > 0 && (
               <div>
                 <dt className="font-medium text-slate-800">{t("Gender")}</dt>
-                <dd className="mt-1 text-slate-600">{scheme.genders.map((gender) => gender.name).join(", ")}</dd>
+                <dd className="mt-1 text-slate-600">{scheme.genders.map((gender) => schemeText(gender.name)).join(", ")}</dd>
               </div>
             )}
             {scheme.criteria.map((dimension) => (
               <div key={dimension.id}>
-                <dt className="font-medium text-slate-800">{dimension.name}</dt>
+                <dt className="font-medium text-slate-800">{schemeText(dimension.name)}</dt>
                 <dd className="mt-1 text-slate-600">
-                  {dimension.options.map((option) => option.label).join(", ")}
+                  {dimension.options.map((option) => schemeText(option.label)).join(", ")}
                 </dd>
               </div>
             ))}
             {scheme.numericRules.map((rule) => (
               <div key={rule.dimensionId}>
-                <dt className="font-medium text-slate-800">{rule.name}</dt>
+                <dt className="font-medium text-slate-800">{schemeText(rule.name)}</dt>
                 <dd className="mt-1 text-slate-600">
                   {numericValue(rule.code, rule.min, t) ?? t("No minimum")}
                   {" – "}
@@ -118,7 +118,7 @@ function SchemeEligibility({ scheme }: { scheme: SchemeRecord }) {
 }
 
 function ApplicationProcess({ scheme }: { scheme: SchemeRecord }) {
-  const { t } = useI18n();
+  const { t, schemeText } = useI18n();
   const modes = (["online", "offline"] as const)
     .filter((modeName) => scheme.applicationProcess[modeName].enabled);
 
@@ -137,7 +137,7 @@ function ApplicationProcess({ scheme }: { scheme: SchemeRecord }) {
             <div className="space-y-5">
               {scheme.applicationProcess[modeName].subsections.map((subsection, index) => (
                 <div key={`${subsection.title}-${index}`} className="rounded-xl bg-slate-50 p-5">
-                  <h4 className="mb-3 font-medium text-slate-900">{subsection.title}</h4>
+                  <h4 className="mb-3 font-medium text-slate-900">{schemeText(subsection.title)}</h4>
                   <FormattedContent content={{ format: subsection.format, items: subsection.steps }} />
                 </div>
               ))}
@@ -180,7 +180,7 @@ function isUnverifiedDocumentMessage(name: string) {
 
 
 function DocumentsList({ scheme }: { scheme: SchemeRecord }) {
-  const { t } = useI18n();
+  const { t, schemeText } = useI18n();
   const items = documentItems(scheme);
   const hasUnverifiedGuidance = "items" in scheme.documents
     && scheme.documents.items.some((item) =>
@@ -207,9 +207,9 @@ function DocumentsList({ scheme }: { scheme: SchemeRecord }) {
       <ul className="list-disc space-y-3 pl-6 text-sm leading-6 text-slate-700">
         {items.map((item) => (
           <li key={item.name}>
-            <span className="font-medium text-slate-900">{item.name}</span>
+            <span className="font-medium text-slate-900">{schemeText(item.name)}</span>
             {item.description && (
-              <span className="mt-1 block text-sm leading-5 text-slate-600">{item.description}</span>
+              <span className="mt-1 block text-sm leading-5 text-slate-600">{schemeText(item.description)}</span>
             )}
           </li>
         ))}
@@ -224,7 +224,7 @@ function DocumentsList({ scheme }: { scheme: SchemeRecord }) {
 }
 
 export default function SchemeDetails() {
-  const { t, categoryName, locationName, ministryName, schemeName } = useI18n();
+  const { t, categoryName, locationName, ministryName, schemeName, schemeText } = useI18n();
   const { id = "" } = useParams();
   const [scheme, setScheme] = useState<SchemeRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -273,8 +273,8 @@ export default function SchemeDetails() {
 
   const keywords = [
     ...scheme.categories.map((category) => categoryName(category.name)),
-    ...scheme.criteria.flatMap((dimension) => dimension.options.map((option) => option.label)),
-    ...scheme.genders.map((gender) => gender.name),
+    ...scheme.criteria.flatMap((dimension) => dimension.options.map((option) => schemeText(option.label))),
+    ...scheme.genders.map((gender) => schemeText(gender.name)),
   ].filter((keyword, index, list) => list.indexOf(keyword) === index);
 
   return (
@@ -292,7 +292,7 @@ export default function SchemeDetails() {
             </p>
             <div className="mt-2 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
               <div>
-                <h1 className="max-w-4xl text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">{schemeName(scheme.code, scheme.name)}</h1>
+                <h1 className="max-w-4xl text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">{schemeText(schemeName(scheme.code, scheme.name))}</h1>
                 {scheme.code && <p className="mt-2 text-sm text-muted-foreground">{t("Scheme code:")} {scheme.code}</p>}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -310,7 +310,7 @@ export default function SchemeDetails() {
             <div className="mt-5 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:gap-8">
               <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> {locationNames(scheme, t, locationName)}</p>
               {scheme.genders.length > 0 && (
-                <p className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> {scheme.genders.map((gender) => gender.name).join(", ")}</p>
+                <p className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> {scheme.genders.map((gender) => schemeText(gender.name)).join(", ")}</p>
               )}
             </div>
           </CardHeader>

@@ -919,6 +919,7 @@ type I18nContextValue = {
   ministryName: (name: string) => string;
   locationName: (name: string) => string;
   schemeName: (code: string | null, name: string) => string;
+  schemeText: (text: string) => string;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -926,6 +927,91 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 function isLanguage(value: string | null): value is Language {
   return value === "en" || value === "hi" || value === "gu";
 }
+
+const schemeTextTranslations: Record<Exclude<Language, "en">, Record<string, string>> = {
+  hi: {
+    "The": "यह", "A": "एक", "An": "एक",
+    "scheme": "योजना", "Scheme": "योजना", "schemes": "योजनाएं",
+    "provides": "प्रदान करती है", "provide": "प्रदान करें", "supports": "समर्थन करती है",
+    "support": "सहायता", "assistance": "सहायता", "financial": "वित्तीय",
+    "benefit": "लाभ", "benefits": "लाभ", "eligible": "पात्र",
+    "eligibility": "पात्रता", "applicant": "आवेदक", "applicants": "आवेदक",
+    "application": "आवेदन", "apply": "आवेदन करें", "process": "प्रक्रिया",
+    "documents": "दस्तावेज़", "document": "दस्तावेज़", "required": "आवश्यक",
+    "details": "विवरण", "information": "जानकारी", "instructions": "निर्देश",
+    "guidelines": "दिशानिर्देश", "current": "वर्तमान", "official": "आधिकारिक",
+    "government": "सरकारी", "ministry": "मंत्रालय", "department": "विभाग",
+    "national": "राष्ट्रीय", "state": "राज्य", "district": "जिला",
+    "rural": "ग्रामीण", "urban": "शहरी", "village": "गांव",
+    "family": "परिवार", "families": "परिवार", "annual": "वार्षिक",
+    "income": "आय", "certificate": "प्रमाणपत्र", "proof": "प्रमाण",
+    "identity": "पहचान", "address": "पता", "bank": "बैंक", "account": "खाता",
+    "name": "नाम", "age": "आयु", "gender": "लिंग", "male": "पुरुष",
+    "female": "महिला", "women": "महिलाएं", "girl": "बालिका", "girls": "बालिकाएं",
+    "child": "बच्चा", "children": "बच्चे", "student": "छात्र", "students": "छात्र",
+    "person": "व्यक्ति", "persons": "व्यक्ति", "family members": "परिवार के सदस्य",
+    "farmer": "किसान", "farmers": "किसान", "agriculture": "कृषि",
+    "health": "स्वास्थ्य", "healthcare": "स्वास्थ्य सेवा", "education": "शिक्षा",
+    "employment": "रोजगार", "training": "प्रशिक्षण", "skill": "कौशल",
+    "pension": "पेंशन", "insurance": "बीमा", "loan": "ऋण", "credit": "ऋण",
+    "housing": "आवास", "house": "घर", "water": "जल", "food": "भोजन",
+    "free": "निःशुल्क", "coverage": "कवरेज", "online": "ऑनलाइन",
+    "offline": "ऑफलाइन", "register": "पंजीकरण करें", "registration": "पंजीकरण",
+    "check": "जांचें", "verify": "सत्यापित करें", "submit": "जमा करें",
+    "upload": "अपलोड करें", "select": "चुनें", "track": "स्थिति देखें",
+    "complete": "पूरा करें", "admission": "प्रवेश", "course": "कोर्स",
+    "institution": "संस्थान", "recognized": "मान्यता प्राप्त", "regular": "नियमित",
+    "year": "वर्ष", "years": "वर्ष", "month": "महीना", "month/year": "महीना/वर्ष",
+    "available": "उपलब्ध", "unavailable": "उपलब्ध नहीं", "not": "नहीं",
+    "no": "कोई नहीं", "none": "कोई नहीं", "per": "प्रति", "up to": "तक",
+    "at least": "कम से कम", "under": "के अंतर्गत", "through": "के माध्यम से",
+    "and": "और", "or": "या", "for": "के लिए", "with": "के साथ", "from": "से",
+    "before": "पहले", "after": "बाद में", "of": "का", "in": "में", "to": "को",
+    "is": "है", "are": "हैं", "must": "होना चाहिए", "may": "हो सकता है",
+    "can": "सकते हैं", "subject": "के अधीन", "amount": "राशि", "rate": "दर",
+  },
+  gu: {
+    "The": "આ", "A": "એક", "An": "એક",
+    "scheme": "યोजना", "Scheme": "યोजना", "schemes": "યોજનાઓ",
+    "provides": "પ્રદાન કરે છે", "provide": "પ્રદાન કરો", "supports": "સહાય કરે છે",
+    "support": "સહાય", "assistance": "સહાય", "financial": "નાણાકીય",
+    "benefit": "લાભ", "benefits": "લાભ", "eligible": "પાત્ર",
+    "eligibility": "પાત્રતા", "applicant": "અરજદાર", "applicants": "અરજદારો",
+    "application": "અરજી", "apply": "અરજી કરો", "process": "પ્રક્રિયા",
+    "documents": "દસ્તાવેજો", "document": "દસ્તાવેજ", "required": "જરૂરી",
+    "details": "વિગતો", "information": "માહિતી", "instructions": "સૂચનાઓ",
+    "guidelines": "માર્ગદર્શિકા", "current": "વર્તમાન", "official": "સત્તાવાર",
+    "government": "સરકાર", "ministry": "મંત્રાલય", "department": "વિભાગ",
+    "national": "રાષ્ટ્રીય", "state": "રાજ્ય", "district": "જિલ્લો",
+    "rural": "ગ્રામ્ય", "urban": "શહેરી", "village": "ગામ",
+    "family": "પરિવાર", "families": "પરિવારો", "annual": "વાર્ષિક",
+    "income": "આવક", "certificate": "પ્રમાણપત્ર", "proof": "પુરાવો",
+    "identity": "ઓળખ", "address": "સરનામું", "bank": "બેંક", "account": "ખાતું",
+    "name": "નામ", "age": "ઉંમર", "gender": "લિંગ", "male": "પુરુષ",
+    "female": "સ્ત્રી", "women": "મહિલાઓ", "girl": "બેટી", "girls": "બેટીઓ",
+    "child": "બાળક", "children": "બાળકો", "student": "વિદ્યાર્થી", "students": "વિદ્યાર્થીઓ",
+    "person": "વ્યક્તિ", "persons": "વ્યક્તિઓ", "family members": "પરિવારના સભ્યો",
+    "farmer": "કિસાન", "farmers": "કિસાનો", "agriculture": "કૃષિ",
+    "health": "આરોગ્ય", "healthcare": "આરોગ્યસેવા", "education": "શિક્ષણ",
+    "employment": "રોજگار", "training": "તાલીમ", "skill": "કૌશલ્ય",
+    "pension": "પેન્શન", "insurance": "વીમો", "loan": "લોન", "credit": "ઉધાર",
+    "housing": "આવાસ", "house": "ઘર", "water": "પાણી", "food": "ખોરાક",
+    "free": "મફત", "coverage": "કવરેજ", "online": "ઓનલાઇન",
+    "offline": "ઑફલાઇન", "register": "નોંધણી કરો", "registration": "નોંધણી",
+    "check": "તપાસો", "verify": "ચકાસો", "submit": "સબમિટ કરો",
+    "upload": "અપલોડ કરો", "select": "પસંદ કરો", "track": "સ્થિતિ તપાસો",
+    "complete": "પૂર્ણ કરો", "admission": "દાખલા", "course": "અભ્યાસક્રમ",
+    "institution": "સંસ્થા", "recognized": "માન્ય", "regular": "નિયમિત",
+    "year": "વર્ષ", "years": "વર્ષ", "month": "મહિનો", "month/year": "મહિનો/વર્ષ",
+    "available": "ઉપલબ્ધ", "unavailable": "ઉપલબ્ધ નથી", "not": "નથી",
+    "no": "કોઈ નહીં", "none": "કોઈ નહીં", "per": "પ્રતિ", "up to": "સુધી",
+    "at least": "ઓછામાં ઓછું", "under": "હેઠળ", "through": "દ્વારા",
+    "and": "અને", "or": "અથવા", "for": "માટે", "with": "સાથે", "from": "માંથી",
+    "before": "પહેલાં", "after": "પછી", "of": "ના", "in": "માં", "to": "માટે",
+    "is": "છે", "are": "છે", "must": "જરૂર", "may": "શકે છે",
+    "can": "શકે છે", "subject": "અધીન", "amount": "રકમ", "rate": "દર",
+  },
+};
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
@@ -969,9 +1055,23 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     const translated = schemeNames[code];
     return translated ? translated[language === "hi" ? 0 : 1] : name;
   };
+  const schemeText = (text: string) => {
+    if (language === "en" || !text) return text;
+    const dictionary = schemeTextTranslations[language];
+    const terms = Object.keys(dictionary).sort((a, b) => b.length - a.length);
+    let translated = text;
+    for (const term of terms) {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      translated = translated.replace(
+        new RegExp(`\\b${escaped}\\b`, "gi"),
+        () => dictionary[term],
+      );
+    }
+    return translated;
+  };
 
   return (
-    <I18nContext.Provider value={{ language, setLanguage, t, categoryName, categoryDescription, ministryName, locationName, schemeName }}>
+    <I18nContext.Provider value={{ language, setLanguage, t, categoryName, categoryDescription, ministryName, locationName, schemeName, schemeText }}>
       {children}
     </I18nContext.Provider>
   );

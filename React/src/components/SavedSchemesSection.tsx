@@ -10,7 +10,7 @@ import { useSavedSchemes } from "@/lib/savedSchemes";
 import SavedSchemeButton from "@/components/SavedSchemeButton";
 
 export default function SavedSchemesSection() {
-  const { t, categoryName, ministryName, schemeName } = useI18n();
+  const { t, categoryName, ministryName, schemeName, schemeText } = useI18n();
   const { ids, error: storageError } = useSavedSchemes();
   const [schemes, setSchemes] = useState<SchemeRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,12 +85,12 @@ export default function SavedSchemesSection() {
                     </div>
                     {scheme.code && <Badge variant="outline">{scheme.code}</Badge>}
                   </div>
-                  <h3 className="text-xl font-semibold tracking-tight">{schemeName(scheme.code, scheme.name)}</h3>
+                  <h3 className="text-xl font-semibold tracking-tight">{schemeText(schemeName(scheme.code, scheme.name))}</h3>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">{ministryName(scheme.ministry.name)}</p>
                   {scheme.benefits.items[0] && (
-                    <p className="mt-3 text-sm font-medium text-primary">{scheme.benefits.items[0]}</p>
+                    <p className="mt-3 text-sm font-medium text-primary">{schemeText(scheme.benefits.items[0])}</p>
                   )}
                   <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                     <Button asChild variant="outline" className="border-primary text-primary">
